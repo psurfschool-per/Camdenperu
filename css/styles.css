@@ -179,9 +179,8 @@ button { cursor: pointer; font-family: var(--body); }
 .products__scroll-hint svg { animation: scrollHint 1.5s ease infinite; }
 @keyframes scrollHint { 0%,100% { transform: translateX(0); } 50% { transform: translateX(6px); } }
 
-.products__grid--auto { animation: autoScroll 40s linear infinite; }
-.products__grid--auto:hover, .products__grid--auto.paused { animation-play-state: paused; }
-@keyframes autoScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+.products__grid--auto.scrolling { scroll-behavior: auto; }
+.products__grid--auto:hover, .products__grid--auto.paused { }
 
 .products__controls { display: flex; align-items: center; gap: 8px; margin-top: 12px; justify-content: center; }
 .products__controls button { width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid var(--gray-light); background: var(--white); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--tr); color: var(--dark); }

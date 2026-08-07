@@ -165,22 +165,39 @@ const o=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){e.targ
 document.querySelectorAll('.reveal').forEach(el=>o.observe(el));
 }
 
-function pauseAutoScroll(id){const el=document.getElementById(id);if(el)el.classList.add('paused')}
-function resumeAutoScroll(id){const el=document.getElementById(id);if(el)el.classList.remove('paused')}
+function pauseAutoScroll(id){const el=document.getElementById(id);if(el){el.classList.add('paused');el._paused=true}}
+function resumeAutoScroll(id){const el=document.getElementById(id);if(el){el.classList.remove('paused');el._paused=false}}
 
 function initAutoScroll(){
 document.querySelectorAll('.products__grid--auto').forEach(grid=>{
-grid.addEventListener('mouseenter',()=>grid.classList.add('paused'));
-grid.addEventListener('mouseleave',()=>grid.classList.remove('paused'));
-grid.addEventListener('touchstart',()=>grid.classList.add('paused'),{passive:true});
-grid.addEventListener('touchend',()=>setTimeout(()=>grid.classList.remove('paused'),3000),{passive:true});
+grid._paused=false;
+grid._speed=0.5;
+grid._direction=1;
+
+function step(){
+if(!grid._paused&&grid.isConnected){
+const maxScroll=grid.scrollWidth-grid.clientWidth;
+if(maxScroll>0){
+grid.scrollLeft+=grid._speed*grid._direction;
+if(grid.scrollLeft>=maxScroll){grid._direction=-1}
+if(grid.scrollLeft<=0){grid._direction=1}
+}
+}
+grid._raf=requestAnimationFrame(step);
+}
+step();
+
+grid.addEventListener('mouseenter',()=>{grid._paused=true;grid.classList.add('paused')});
+grid.addEventListener('mouseleave',()=>{grid._paused=false;grid.classList.remove('paused')});
+grid.addEventListener('touchstart',()=>{grid._paused=true;grid.classList.add('paused')},{passive:true});
+grid.addEventListener('touchend',()=>{setTimeout(()=>{grid._paused=false;grid.classList.remove('paused')},3000)},{passive:true});
 grid.addEventListener('wheel',e=>{
 if(Math.abs(e.deltaX)>Math.abs(e.deltaY))return;
 e.preventDefault();
 grid.scrollLeft+=e.deltaY;
-grid.classList.add('paused');
+grid._paused=true;grid.classList.add('paused');
 clearTimeout(grid._wheelTimer);
-grid._wheelTimer=setTimeout(()=>grid.classList.remove('paused'),4000);
+grid._wheelTimer=setTimeout(()=>{grid._paused=false;grid.classList.remove('paused')},4000);
 },{passive:false});
 });
 }
