@@ -179,6 +179,15 @@ button { cursor: pointer; font-family: var(--body); }
 .products__scroll-hint svg { animation: scrollHint 1.5s ease infinite; }
 @keyframes scrollHint { 0%,100% { transform: translateX(0); } 50% { transform: translateX(6px); } }
 
+.products__grid--auto { animation: autoScroll 40s linear infinite; }
+.products__grid--auto:hover, .products__grid--auto.paused { animation-play-state: paused; }
+@keyframes autoScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+.products__controls { display: flex; align-items: center; gap: 8px; margin-top: 12px; justify-content: center; }
+.products__controls button { width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid var(--gray-light); background: var(--white); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--tr); color: var(--dark); }
+.products__controls button:hover { border-color: var(--accent); color: var(--accent); background: var(--light); }
+.products__controls button.active { background: var(--accent); color: var(--white); border-color: var(--accent); }
+
 @media (max-width: 1024px) {
     .products__grid--scroll .product-card { min-width: 220px; max-width: 240px; }
     .products__scroll-hint { display: flex; }
