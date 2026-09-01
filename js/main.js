@@ -1,4 +1,4 @@
-const PRODUCTS=[
+const BASE_PRODUCTS=[
 {id:1,name:"Poncho Camden Azul Marino - Lila",price:200,image:"https://camdenperu.com/cdn/shop/files/IMG_4158_c007b32b-9276-4b3c-9c87-8bfddd9bcc00.jpg?v=1768272546&width=533",images:["https://camdenperu.com/cdn/shop/files/IMG_4158_c007b32b-9276-4b3c-9c87-8bfddd9bcc00.jpg?v=1768272546&width=1000","https://camdenperu.com/cdn/shop/files/IMG_4156_0f87d496-4baa-4307-8a11-116cdcaed07c.jpg?v=1768272613&width=1000"],category:"adulto",inStock:true,badge:"Nuevo",slug:"poncho-camden-azul-marino-lila-1",desc:"Poncho Cambiador Premium. Corte amplio, mangas espaciosas, felpa suave, capucha de doble forro, costuras reforzadas y bolsillo frontal."},
 {id:2,name:"Poncho Camden Rojo - Azul Marino",price:200,image:"https://camdenperu.com/cdn/shop/files/IMG_5315.jpg?v=1768271922&width=533",images:["https://camdenperu.com/cdn/shop/files/IMG_5315.jpg?v=1768271922&width=1000"],category:"adulto",inStock:true,slug:"poncho-camden-rojo-azul-marino",desc:"Poncho Premium. Combinacion rojo con azul marino."},
 {id:3,name:"Poncho Camden Azul Marino - Turqueza",price:200,image:"https://camdenperu.com/cdn/shop/files/IMG_62362_a0e47542-7b24-45aa-b325-8298febc25ba.jpg?v=1768271634&width=533",images:["https://camdenperu.com/cdn/shop/files/IMG_62362_a0e47542-7b24-45aa-b325-8298febc25ba.jpg?v=1768271634&width=1000"],category:"adulto",inStock:true,slug:"poncho-camden-azul-marino-anaranjado-copia",desc:"Azul marino con detalles en turquesa. Felpa suave de secado rapido."},
@@ -34,10 +34,139 @@ const PRODUCTS=[
 {id:107,name:"Poncho Ninos Rojo Vino - Turquesa",price:200,image:"https://camdenperu.com/cdn/shop/files/IMG_8142.jpg?v=1760037269&width=533",images:["https://camdenperu.com/cdn/shop/files/IMG_8142.jpg?v=1760037269&width=1000"],category:"ninos",inStock:true,slug:"poncho-camden-ninos-rojo-vino-con-turquesa",desc:"Rojo vino con turquesa. Pasion y aventura."},
 {id:108,name:"Poncho Ninos Rosado - Anaranjado",price:200,image:"https://camdenperu.com/cdn/shop/files/pninos.fucsianaranjado1_45344b92-b168-4f4a-9653-58b284569055.jpg?v=1768320366&width=533",images:["https://camdenperu.com/cdn/shop/files/pninos.fucsianaranjado1_45344b92-b168-4f4a-9653-58b284569055.jpg?v=1768320366&width=1000"],category:"ninos",inStock:true,slug:"poncho-cambiador-ninos-rosa-chicle",desc:"Rosado con anaranjado. Alegria y color."}
 ];
+const PRODUCTS_KEY='camden_products_custom';
+const DELETED_KEY='camden_deleted_ids';
+function loadProducts(){
+  let custom=[];
+  let deleted=[];
+  try{ custom=JSON.parse(localStorage.getItem(PRODUCTS_KEY)||'[]'); }catch(e){}
+  try{ deleted=JSON.parse(localStorage.getItem(DELETED_KEY)||'[]'); }catch(e){}
+  const baseFiltered = BASE_PRODUCTS.filter(b=>!deleted.includes(b.id));
+  return [...baseFiltered, ...custom];
+}
+let PRODUCTS = loadProducts();
+function saveProducts(){
+  const custom = PRODUCTS.filter(pr => !BASE_PRODUCTS.some(b=>b.id===pr.id));
+  localStorage.setItem(PRODUCTS_KEY, JSON.stringify(custom));
+}
+function generateSlug(name){
+  return name.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') + '-' + Date.now().toString(36).slice(-4);
+}
+function getNextProductId(){
+  return Math.max(...PRODUCTS.map(pr=>pr.id), 0) + 1;
+}
+function deleteProduct(id){
+  if(!confirm('¿Eliminar este producto? Esta acción no se puede deshacer.')) return;
+  const isBase = BASE_PRODUCTS.some(b=>b.id===id);
+  if(isBase){
+    if(!confirm('Es un producto base. ¿Seguro que quieres eliminarlo? Se ocultará localmente.')) return;
+    try{
+      const del=JSON.parse(localStorage.getItem(DELETED_KEY)||'[]');
+      if(!del.includes(id)) del.push(id);
+      localStorage.setItem(DELETED_KEY, JSON.stringify(del));
+    }catch(e){}
+  }
+  PRODUCTS = PRODUCTS.filter(pr=>pr.id!==id);
+  if(STOCK[id]){ delete STOCK[id]; saveStock(); }
+  saveProducts();
+  renderAdmin(document.getElementById('mainContent'));
+  showCartNotification('Producto eliminado', true);
+}
+
 
 const STORE_WHATSAPP='51979359261';
 let cart=JSON.parse(localStorage.getItem('camden_cart'))||[];
 let detailQty=1;
+let detailSize='grande';
+
+// ========= SISTEMA DE STOCK =========
+const STOCK_KEY='camden_stock_v2';
+const ADMIN_PASS='camden2026';
+const LOW_STOCK_THRESHOLD=5;
+
+function getDefaultStockForProduct(p){
+  if(p.category==='natural') return {unico: 40};
+  return {small: 12, grande: 12};
+}
+function loadStock(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(STOCK_KEY));
+    if(saved && Object.keys(saved).length) return saved;
+  }catch(e){}
+  const initial={};
+  PRODUCTS.forEach(p=>{
+    initial[p.id]=getDefaultStockForProduct(p);
+  });
+  // Ejemplo demo: algunos con stock bajo/agotado para visualizar
+  initial[2]={small:2, grande:0};
+  initial[5]={small:0, grande:3};
+  initial[14]={small:1, grande:1};
+  localStorage.setItem(STOCK_KEY, JSON.stringify(initial));
+  return initial;
+}
+let STOCK=loadStock();
+PRODUCTS.forEach(p=>p.inStock=getTotalStock(p.id)>0);
+
+function saveStock(){ localStorage.setItem(STOCK_KEY, JSON.stringify(STOCK)); }
+function getStock(id, size=null){
+  const s=STOCK[id];
+  if(!s) return 0;
+  if(size && s[size]!==undefined) return s[size];
+  return Object.values(s).reduce((a,b)=>a+b,0);
+}
+function getTotalStock(id){ return getStock(id); }
+function isOutOfStock(id){ return getTotalStock(id)===0; }
+function isLowStock(id){ const t=getTotalStock(id); return t>0 && t<=LOW_STOCK_THRESHOLD; }
+function getStockBySize(id){ return STOCK[id]||{}; }
+function setStock(id, size, qty){
+  if(!STOCK[id]) STOCK[id]=getDefaultStockForProduct(PRODUCTS.find(p=>p.id===id));
+  const v=Math.max(0, parseInt(qty)||0);
+  if(size) STOCK[id][size]=v;
+  else {
+    // para categoria natural
+    const k=Object.keys(STOCK[id])[0];
+    STOCK[id][k]=v;
+  }
+  saveStock();
+  // sincronizar badge inStock para compatibilidad
+  const prod=PRODUCTS.find(p=>p.id===id);
+  if(prod) prod.inStock=getTotalStock(id)>0;
+}
+function adjustStock(id, size, delta){
+  const cur=getStock(id,size);
+  setStock(id,size,cur+delta);
+}
+function decrementStockForOrder(items){
+  items.forEach(it=>{
+    const size=it.size || (STOCK[it.id]?.unico!==undefined ? 'unico' : 'grande');
+    const s=STOCK[it.id];
+    if(!s) return;
+    if(s[size]!==undefined){
+      s[size]=Math.max(0, s[size]-it.qty);
+    } else {
+      // si no hay talla exacta, descontar de donde haya
+      let remaining=it.qty;
+      for(const k of Object.keys(s)){
+        const take=Math.min(s[k], remaining);
+        s[k]-=take;
+        remaining-=take;
+        if(remaining<=0) break;
+      }
+    }
+  });
+  saveStock();
+  PRODUCTS.forEach(p=>p.inStock=getTotalStock(p.id)>0);
+}
+function getGlobalStats(){
+  let totalUnits=0, outOfStock=0, lowStock=0, totalProducts=PRODUCTS.length;
+  PRODUCTS.forEach(p=>{
+    const t=getTotalStock(p.id);
+    totalUnits+=t;
+    if(t===0) outOfStock++;
+    else if(t<=LOW_STOCK_THRESHOLD) lowStock++;
+  });
+  return {totalUnits, outOfStock, lowStock, totalProducts};
+}
 
 function sendWhatsAppOrder(o){
 let t=o.items.map(i=>`  - ${i.name} x${i.qty} = S/. ${(i.price*i.qty).toFixed(2)}`).join('\n');
@@ -48,24 +177,51 @@ window.open(`https://wa.me/${STORE_WHATSAPP}?text=${encodeURIComponent(m)}`,'_bl
 
 function saveCart(){localStorage.setItem('camden_cart',JSON.stringify(cart));updateCartCount();renderCartSidebar()}
 
-function addToCart(id,qty=1){
-const p=PRODUCTS.find(x=>x.id===id);if(!p||!p.inStock)return;
-const e=cart.find(x=>x.id===id);
-if(e)e.qty+=qty;else cart.push({id,name:p.name,price:p.price,image:p.image,qty});
-saveCart();showCartNotification(p.name);
+function addToCart(id,qty=1,size=null){
+const p=PRODUCTS.find(x=>x.id===id);if(!p)return;
+if(isOutOfStock(id)){showCartNotification('Producto agotado',true);return;}
+const stockSize=size || detailSize || (STOCK[id]?.unico!==undefined?'unico':'grande');
+const available=getStock(id, stockSize);
+if(available!==undefined && STOCK[id][stockSize]!==undefined){
+  // validar por talla
+  const key=id+'_'+stockSize;
+  const e=cart.find(x=>x.cartKey===key);
+  const currentQty=e?e.qty:0;
+  if(currentQty+qty > available){
+    showCartNotification(`Stock insuficiente. Solo quedan ${available} unidades (talla ${stockSize})`,true);
+    return;
+  }
+  if(e)e.qty+=qty;else cart.push({id,cartKey:key,name:p.name + (stockSize!=='unico'?' - Talla '+(stockSize==='small'?'S':'G') : ''),price:p.price,image:p.image,qty,size:stockSize,baseName:p.name});
+} else {
+  // fallback por stock total
+  const totalAvail=getTotalStock(id);
+  const e=cart.find(x=>x.id===id && !x.size);
+  const cur=e?e.qty:0;
+  if(cur+qty>totalAvail){showCartNotification(`Solo quedan ${totalAvail} unidades`,true);return;}
+  if(e)e.qty+=qty;else cart.push({id,cartKey:String(id),name:p.name,price:p.price,image:p.image,qty,size:null,baseName:p.name});
+}
+saveCart();showCartNotification(p.name+(stockSize && stockSize!=='unico' ? ` (Talla ${stockSize==='small'?'S':'G'})`:'' ));
 }
 
-function removeFromCart(id){cart=cart.filter(x=>x.id!==id);saveCart()}
-function updateCartQty(id,q){const i=cart.find(x=>x.id===id);if(i){i.qty=Math.max(1,q);saveCart()}}
+function removeFromCart(cartKey){cart=cart.filter(x=>(x.cartKey||String(x.id))!==String(cartKey));saveCart()}
+function updateCartQty(cartKey,q){
+  const key=String(cartKey);
+  const i=cart.find(x=>(x.cartKey||String(x.id))===key);
+  if(!i) return;
+  const maxStock=i.size?getStock(i.id,i.size):getTotalStock(i.id);
+  let newQty=Math.max(1,q);
+  if(newQty>maxStock){showCartNotification(`Stock maximo: ${maxStock}`,true);newQty=maxStock;}
+  i.qty=newQty;saveCart()
+}
 function getCartTotal(){return cart.reduce((s,i)=>s+i.price*i.qty,0)}
 function getCartCount(){return cart.reduce((s,i)=>s+i.qty,0)}
 function updateCartCount(){const e=document.querySelector('.cart-count');if(e)e.textContent=getCartCount()}
 
-function showCartNotification(n){
-const d=document.createElement('div');d.className='cart-notification';
-d.innerHTML=`<span>"${n}" agregado al carrito</span>`;
+function showCartNotification(n,isError=false){
+const d=document.createElement('div');d.className='cart-notification'+(isError?' cart-notification--error':'');
+d.innerHTML=`<span>${isError? '⚠️ '+n : `"${n}" agregado al carrito`}</span>`;
 document.body.appendChild(d);setTimeout(()=>d.classList.add('show'),10);
-setTimeout(()=>{d.classList.remove('show');setTimeout(()=>d.remove(),300)},2500);
+setTimeout(()=>{d.classList.remove('show');setTimeout(()=>d.remove(),300)}, isError?3500:2500);
 }
 
 function renderCartSidebar(){
@@ -74,7 +230,10 @@ t=document.getElementById('cartTotal'),em=document.getElementById('cartEmpty'),f
 if(!s)return;
 if(!cart.length){em.style.display='block';f.style.display='none';c.innerHTML='';return}
 em.style.display='none';f.style.display='block';
-c.innerHTML=cart.map(i=>`<div class="cart-item"><img src="${i.image}" alt="${i.name}"><div class="cart-item__info"><h4>${i.name}</h4><span class="cart-item__price">S/. ${i.price.toFixed(2)}</span><div class="cart-item__qty"><button onclick="updateCartQty(${i.id},${i.qty-1})">-</button><span>${i.qty}</span><button onclick="updateCartQty(${i.id},${i.qty+1})">+</button></div></div><button class="cart-item__remove" onclick="removeFromCart(${i.id})">&times;</button></div>`).join('');
+c.innerHTML=cart.map(i=>{
+ const key=i.cartKey || String(i.id);
+ return `<div class="cart-item"><img src="${i.image}" alt="${i.name}"><div class="cart-item__info"><h4>${i.name}</h4><span class="cart-item__price">S/. ${i.price.toFixed(2)}</span><div class="cart-item__qty"><button onclick="updateCartQty('${key}',${i.qty-1})">-</button><span>${i.qty}</span><button onclick="updateCartQty('${key}',${i.qty+1})">+</button></div></div><button class="cart-item__remove" onclick="removeFromCart('${key}')">&times;</button></div>`;
+}).join('');
 t.textContent=`S/. ${getCartTotal().toFixed(2)}`;
 }
 
@@ -97,13 +256,22 @@ switch(page){
 case'home':renderHome(m);break;case'productos':renderProducts(m,'adulto');break;case'adultos':renderHome(m);setTimeout(()=>{const el=document.getElementById('adultos');if(el)el.scrollIntoView({behavior:'smooth'})},100);break;
 case'ninos':renderProducts(m,'ninos');break;case'coco':renderProducts(m,'natural');break;
 case'producto':renderProductDetail(m,param);break;case'checkout':renderCheckout(m);break;
-case'confirmacion':renderConfirmation(m);break;default:renderHome(m);
+case'confirmacion':renderConfirmation(m);break;
+case'admin':renderAdmin(m);break;
+default:renderHome(m);
 }
 window.scrollTo({top:0,behavior:'smooth'});initScrollAnimations();initAutoScroll();
 }
 
 function renderProductCard(p){
-return`<a href="#producto/${p.slug}" class="product-card"><div class="product-card__image"><img src="${p.image}" alt="${p.name}" loading="lazy">${p.badge?`<span class="product-card__badge">${p.badge}</span>`:''}${!p.inStock?'<span class="product-card__badge product-card__badge--sold">Agotado</span>':''}</div><div class="product-card__info"><h3>${p.name}</h3><span class="product-card__price">S/. ${p.price.toFixed(2)}</span></div></a>`;
+const total=getTotalStock(p.id);
+const low=isLowStock(p.id);
+const out=isOutOfStock(p.id);
+let badgeHtml='';
+if(out) badgeHtml='<span class="product-card__badge product-card__badge--sold">Agotado</span>';
+else if(low) badgeHtml='<span class="product-card__badge product-card__badge--low">Quedan '+total+'</span>';
+else if(p.badge) badgeHtml=`<span class="product-card__badge">${p.badge}</span>`;
+return`<a href="#producto/${p.slug}" class="product-card ${out?'product-card--out':''}"><div class="product-card__image"><img src="${p.image}" alt="${p.name}" loading="lazy">${badgeHtml}<span class="product-card__stock-hint">${out?'Sin stock': total+' en stock'}</span></div><div class="product-card__info"><h3>${p.name}</h3><span class="product-card__price">S/. ${p.price.toFixed(2)}</span></div></a>`;
 }
 
 function renderHome(c){
@@ -131,11 +299,60 @@ function renderProductDetail(c,slug){
 const p=PRODUCTS.find(x=>x.slug===slug);
 if(!p){c.innerHTML='<section class="page-header"><h1>Producto no encontrado</h1><a href="#home" class="btn btn--primary">Volver al inicio</a></section>';return}
 const r=PRODUCTS.filter(x=>x.category===p.category&&x.id!==p.id).slice(0,4);
-c.innerHTML=`<section class="product-detail"><div class="product-detail__container"><div class="product-detail__gallery"><div class="product-detail__main-image"><img src="${p.images[0]}" alt="${p.name}" id="mainProductImage"></div>${p.images.length>1?`<div class="product-detail__thumbs">${p.images.map((img,i)=>`<button class="product-detail__thumb ${i===0?'active':''}" onclick="changeMainImage('${img}',this)"><img src="${img}" alt="${p.name}"></button>`).join('')}</div>`:''}</div><div class="product-detail__info"><span class="section-tag">CAMDEN PERU</span><h1 class="product-detail__title">${p.name}</h1><div class="product-detail__price">S/. ${p.price.toFixed(2)}</div><p class="product-detail__desc">${p.desc}</p><div class="product-detail__sizes"><h4>Guia de tallas</h4><div class="size-options"><div class="size-option"><strong>Small:</strong> 100cm largo x 61cm ancho</div><div class="size-option"><strong>Grande:</strong> 110cm largo x 85cm ancho</div></div></div>${p.inStock?`<div class="product-detail__qty"><label>Cantidad</label><div class="qty-control"><button onclick="changeDetailQty(-1)">-</button><span id="detailQty">1</span><button onclick="changeDetailQty(1)">+</button></div></div><button class="btn btn--primary btn--full" onclick="addToCartFromDetail(${p.id})"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> Agregar al carrito</button>`:'<button class="btn btn--primary btn--full" disabled style="opacity:0.5;cursor:not-allowed;">Agotado</button>'}<div class="product-detail__features"><div class="feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z"/></svg><span>Hecho con amor en Peru</span></div><div class="feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>100% Producto Peruano</span></div><div class="feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,12 20,22 4,22 4,12"/><rect x="2" y="7" width="20" height="5" rx="1"/></svg><span>Envio a todo el pais</span></div></div></div></div></section>${r.length?`<section class="products" style="background:var(--light)"><div class="products__container"><div class="products__header"><span class="section-tag">Te puede interesar</span><h2 class="section-title">Productos relacionados</h2></div><div class="products__grid">${r.map(p=>renderProductCard(p)).join('')}</div></div></section>`:''}`;
+const stockInfo=getStockBySize(p.id);
+const totalStock=getTotalStock(p.id);
+const isNatural=p.category==='natural';
+let sizeSelector='';
+if(isNatural){
+  const unicoQty=stockInfo.unico||0;
+  sizeSelector=`<div class="product-detail__sizes"><h4>Stock disponible</h4><div class="size-options"><div class="size-option" style="border:1px solid ${unicoQty===0?'#feb2b2':unicoQty<=5?'#fbd38d':'#c6f6d5'};background:${unicoQty===0?'#fff5f5':unicoQty<=5?'#fffaf0':'#f0fff4'}"><strong>Stock:</strong> ${unicoQty} unidades ${unicoQty===0?'- Agotado':unicoQty<=5?'- Ultimas unidades':''}</div></div></div>`;
+  detailSize='unico';
+} else {
+  const sQty=stockInfo.small||0, gQty=stockInfo.grande||0;
+  if(!detailSize || detailSize==='unico') detailSize=gQty>0?'grande':(sQty>0?'small':'grande');
+  sizeSelector=`<div class="product-detail__sizes"><h4>Selecciona talla</h4><div class="size-selector"><button class="size-btn ${detailSize==='small'?'active':''}" data-size="small" onclick="selectDetailSize('small')" ${sQty===0?'disabled':''}><strong>Small</strong><span>100x61cm</span><span class="size-stock ${sQty===0?'out':sQty<=5?'low':''}">${sQty===0?'Agotado':sQty+' disp.'}</span></button><button class="size-btn ${detailSize==='grande'?'active':''}" data-size="grande" onclick="selectDetailSize('grande')" ${gQty===0?'disabled':''}><strong>Grande</strong><span>110x85cm</span><span class="size-stock ${gQty===0?'out':gQty<=5?'low':''}">${gQty===0?'Agotado':gQty+' disp.'}</span></button></div><div id="detailStockMsg" class="detail-stock-msg"></div></div>`;
+}
+const outOfStock=totalStock===0;
+const canBuy=!outOfStock && (isNatural ? (stockInfo.unico||0)>0 : getStock(p.id, detailSize)>0);
+c.innerHTML=`<section class="product-detail"><div class="product-detail__container"><div class="product-detail__gallery"><div class="product-detail__main-image"><img src="${p.images[0]}" alt="${p.name}" id="mainProductImage"></div>${p.images.length>1?`<div class="product-detail__thumbs">${p.images.map((img,i)=>`<button class="product-detail__thumb ${i===0?'active':''}" onclick="changeMainImage('${img}',this)"><img src="${img}" alt="${p.name}"></button>`).join('')}</div>`:''}</div><div class="product-detail__info"><span class="section-tag">CAMDEN PERU</span><h1 class="product-detail__title">${p.name}</h1><div class="product-detail__price">S/. ${p.price.toFixed(2)}</div><p class="product-detail__desc">${p.desc}</p>${sizeSelector}${!outOfStock?`<div class="product-detail__qty"><label>Cantidad</label><div class="qty-control"><button onclick="changeDetailQty(-1)">-</button><span id="detailQty" data-pid="${p.id}">1</span><button onclick="changeDetailQty(1)">+</button></div></div><button class="btn btn--primary btn--full" id="detailAddBtn" onclick="addToCartFromDetail(${p.id})" ${!canBuy?'disabled style="opacity:0.5;cursor:not-allowed;"':''}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> ${canBuy?'Agregar al carrito':'Agotado en esta talla'}</button>`:'<button class="btn btn--primary btn--full" disabled style="opacity:0.5;cursor:not-allowed;">Agotado - Sin stock</button>'}<div class="product-detail__features"><div class="feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z"/></svg><span>Hecho con amor en Peru</span></div><div class="feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>100% Producto Peruano</span></div><div class="feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,12 20,22 4,22 4,12"/><rect x="2" y="7" width="20" height="5" rx="1"/></svg><span>Envio a todo el pais</span></div></div></div></div></section>${r.length?`<section class="products" style="background:var(--light)"><div class="products__container"><div class="products__header"><span class="section-tag">Te puede interesar</span><h2 class="section-title">Productos relacionados</h2></div><div class="products__grid">${r.map(p=>renderProductCard(p)).join('')}</div></div></section>`:''}`;
+  setTimeout(updateDetailStockMsg,50);
 }
 
-function changeDetailQty(d){detailQty=Math.max(1,detailQty+d);document.getElementById('detailQty').textContent=detailQty}
-function addToCartFromDetail(id){addToCart(id,detailQty);detailQty=1}
+function changeDetailQty(d){
+  const pId=parseInt(document.getElementById('detailQty')?.dataset.pid||0);
+  let max=99;
+  if(pId){
+    const sz=detailSize||(STOCK[pId]?.unico!==undefined?'unico':'grande');
+    max=getStock(pId, sz) || 99;
+    const availMsg=document.getElementById('detailStockMsg');
+  }
+  detailQty=Math.max(1, Math.min(detailQty+d, max));
+  const el=document.getElementById('detailQty');
+  if(el){ el.textContent=detailQty; el.dataset.pid=pId; }
+  updateDetailStockMsg();
+}
+function selectDetailSize(size){
+  detailSize=size;
+  document.querySelectorAll('.size-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.querySelector(`.size-btn[data-size="${size}"]`);
+  if(btn) btn.classList.add('active');
+  detailQty=1;
+  const el=document.getElementById('detailQty');
+  if(el) el.textContent='1';
+  updateDetailStockMsg();
+}
+function updateDetailStockMsg(){
+  const pid=parseInt(document.getElementById('detailQty')?.dataset.pid||0);
+  if(!pid) return;
+  const size=detailSize||(STOCK[pid]?.unico!==undefined?'unico':'grande');
+  const avail=getStock(pid,size);
+  const msg=document.getElementById('detailStockMsg');
+  if(!msg) return;
+  if(avail===0) msg.innerHTML='<span style="color:#e53e3e">Agotado en talla '+(size==='small'?'S':size==='grande'?'G':size)+'</span>';
+  else if(avail<=5) msg.innerHTML='<span style="color:#d69e2e">Quedan '+avail+' unidades</span>';
+  else msg.innerHTML='<span style="color:#38a169">'+avail+' en stock</span>';
+}
+function addToCartFromDetail(id){addToCart(id,detailQty,detailSize);detailQty=1}
 function changeMainImage(s,b){document.getElementById('mainProductImage').src=s;document.querySelectorAll('.product-detail__thumb').forEach(t=>t.classList.remove('active'));b.classList.add('active')}
 
 function renderCheckout(c){
@@ -146,9 +363,24 @@ c.innerHTML=`<section class="page-header"><h1>Finalizar compra</h1><p>Completa t
 function togglePaymentMethod(r){document.querySelectorAll('.payment-method').forEach(m=>m.classList.remove('active'));r.closest('.payment-method').classList.add('active')}
 
 function processPayment(e){
-e.preventDefault();const f=new FormData(e.target),id='CMP-'+Date.now().toString(36).toUpperCase();
+e.preventDefault();
+for(const it of cart){
+  const avail = it.size ? getStock(it.id, it.size) : getTotalStock(it.id);
+  if(it.qty > avail){
+    alert('Stock insuficiente para '+(it.baseName||it.name)+'. Disponible: '+avail);
+    return;
+  }
+}
+const f=new FormData(e.target),id='CMP-'+Date.now().toString(36).toUpperCase();
 const o={id,items:[...cart],total:getCartTotal(),customer:{nombre:f.get('nombre'),email:f.get('email'),telefono:f.get('telefono'),direccion:f.get('direccion'),departamento:f.get('departamento'),referencia:f.get('referencia')},payment:f.get('pago'),date:new Date().toISOString()};
-localStorage.setItem('camden_last_order',JSON.stringify(o));cart=[];saveCart();navigate('confirmacion');
+decrementStockForOrder(cart);
+localStorage.setItem('camden_last_order',JSON.stringify(o));
+try{
+  const hist=JSON.parse(localStorage.getItem('camden_stock_history')||'[]');
+  hist.unshift({date:new Date().toISOString(), orderId:id, items:o.items.map(i=>({id:i.id,name:i.baseName||i.name,size:i.size,qty:i.qty})), total:o.total});
+  localStorage.setItem('camden_stock_history', JSON.stringify(hist.slice(0,100)));
+}catch(e){}
+cart=[];saveCart();navigate('confirmacion');
 setTimeout(()=>sendWhatsAppOrder(o),500);
 }
 
@@ -200,6 +432,178 @@ clearTimeout(grid._wheelTimer);
 grid._wheelTimer=setTimeout(()=>{grid._paused=false;grid.classList.remove('paused')},4000);
 },{passive:false});
 });
+}
+
+
+
+function openAddProductModal(){
+  document.getElementById('addProductModal').classList.add('active');
+  document.getElementById('addProductOverlay').classList.add('active');
+}
+function closeAddProductModal(){
+  document.getElementById('addProductModal').classList.remove('active');
+  document.getElementById('addProductOverlay').classList.remove('active');
+}
+function handleAddProduct(e){
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const name = fd.get('name').trim();
+  const category = fd.get('category');
+  const price = parseFloat(fd.get('price'));
+  const image = fd.get('image').trim();
+  const desc = fd.get('desc').trim() || 'Nuevo producto Camden Peru';
+  const stockSmall = parseInt(fd.get('stockSmall')||'0');
+  const stockGrande = parseInt(fd.get('stockGrande')||'0');
+  const stockUnico = parseInt(fd.get('stockUnico')||'0');
+  if(!name || !price || !image){ alert('Completa nombre, precio e imagen'); return; }
+  const id = getNextProductId();
+  const slug = generateSlug(name);
+  const newProd = {
+    id, name, price, image, images:[image], category, inStock:true, slug, desc,
+    badge:'Nuevo'
+  };
+  PRODUCTS.push(newProd);
+  // init stock
+  if(category==='natural'){
+    STOCK[id] = { unico: stockUnico || 20 };
+  } else {
+    STOCK[id] = { small: stockSmall||0, grande: stockGrande||0 };
+  }
+  saveStock();
+  saveProducts();
+  closeAddProductModal();
+  e.target.reset();
+  // reset stock fields visibility
+  toggleAddStockFields();
+  renderAdmin(document.getElementById('mainContent'));
+  showCartNotification(name + ' agregado al inventario');
+}
+function toggleAddStockFields(){
+  const cat = document.querySelector('#addProductForm select[name="category"]')?.value;
+  const isNatural = cat==='natural';
+  const rowSmall = document.getElementById('rowSmall');
+  const rowGrande = document.getElementById('rowGrande');
+  const rowUnico = document.getElementById('rowUnico');
+  if(rowSmall) rowSmall.style.display = isNatural ? 'none' : 'flex';
+  if(rowGrande) rowGrande.style.display = isNatural ? 'none' : 'flex';
+  if(rowUnico) rowUnico.style.display = isNatural ? 'flex' : 'none';
+}
+
+// ========= ADMIN PANEL STOCK =========
+let adminFilter='all';
+let adminSearch='';
+function renderAdmin(c){
+  const logged=sessionStorage.getItem('camden_admin')==='1';
+  if(!logged){
+    c.innerHTML=`<section class="admin-login"><div class="admin-login__box"><h1>Panel de Stock</h1><p>Ingresa la clave de administrador</p><form onsubmit="adminLogin(event)"><input type="password" id="adminPass" placeholder="Clave" required><button type="submit" class="btn btn--primary btn--full">Ingresar</button><p class="admin-hint">Clave por defecto: <code>camden2026</code></p></form><a href="#home" class="btn btn--outline" style="margin-top:12px;color:var(--primary);border-color:var(--primary)">Volver a la tienda</a></div></section>`;
+    return;
+  }
+  const stats=getGlobalStats();
+  const hist=JSON.parse(localStorage.getItem('camden_stock_history')||'[]');
+  c.innerHTML=`<section class="admin"><div class="admin__container">
+    <div class="admin__header"><div><h1>Gestión de Stock</h1><p>${stats.totalProducts} productos · ${stats.totalUnits} unidades totales</p></div><div class="admin__actions"><button class="btn btn--primary" onclick="openAddProductModal()" style="background:var(--accent);border:none">+ Agregar producto</button><button class="btn btn--primary" onclick="exportStockCSV()">Exportar CSV</button><button class="btn btn--outline" style="color:var(--primary);border-color:var(--primary)" onclick="resetStock()">Restaurar stock</button><button class="btn" style="background:#fee2e2;color:#991b1b" onclick="adminLogout()">Salir</button></div></div>
+    <div class="admin__stats">
+      <div class="admin-stat"><span class="admin-stat__num">${stats.totalUnits}</span><span class="admin-stat__label">Unidades totales</span></div>
+      <div class="admin-stat admin-stat--ok"><span class="admin-stat__num">${stats.totalProducts - stats.outOfStock - stats.lowStock}</span><span class="admin-stat__label">Con stock</span></div>
+      <div class="admin-stat admin-stat--warn"><span class="admin-stat__num">${stats.lowStock}</span><span class="admin-stat__label">Stock bajo (≤${LOW_STOCK_THRESHOLD})</span></div>
+      <div class="admin-stat admin-stat--danger"><span class="admin-stat__num">${stats.outOfStock}</span><span class="admin-stat__label">Agotados</span></div>
+    </div>
+    <div class="admin__toolbar">
+      <input type="text" placeholder="Buscar poncho..." value="${adminSearch}" oninput="adminSearch=this.value;renderAdmin(document.getElementById('mainContent'))" class="admin-search">
+      <div class="admin-filters">
+        <button class="${adminFilter==='all'?'active':''}" onclick="adminFilter='all';renderAdmin(document.getElementById('mainContent'))">Todos</button>
+        <button class="${adminFilter==='low'?'active':''}" onclick="adminFilter='low';renderAdmin(document.getElementById('mainContent'))">Bajo stock</button>
+        <button class="${adminFilter==='out'?'active':''}" onclick="adminFilter='out';renderAdmin(document.getElementById('mainContent'))">Agotados</button>
+        <button class="${adminFilter==='adulto'?'active':''}" onclick="adminFilter='adulto';renderAdmin(document.getElementById('mainContent'))">Adultos</button>
+        <button class="${adminFilter==='ninos'?'active':''}" onclick="adminFilter='ninos';renderAdmin(document.getElementById('mainContent'))">Niños</button>
+      </div>
+    </div>
+    <div class="admin__table-wrap"><table class="admin-table"><thead><tr><th>Producto</th><th>Categoría</th><th>Small</th><th>Grande / Único</th><th>Total</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+      ${PRODUCTS.filter(p=>{
+        if(adminFilter==='low' && !isLowStock(p.id)) return false;
+        if(adminFilter==='out' && !isOutOfStock(p.id)) return false;
+        if(adminFilter==='adulto' && p.category!=='adulto') return false;
+        if(adminFilter==='ninos' && p.category!=='ninos') return false;
+        if(adminSearch && !p.name.toLowerCase().includes(adminSearch.toLowerCase())) return false;
+        return true;
+      }).map(p=>{
+        const s=getStockBySize(p.id);
+        const total=getTotalStock(p.id);
+        let estado='<span class="badge badge--ok">OK</span>';
+        if(total===0) estado='<span class="badge badge--danger">Agotado</span>';
+        else if(total<=LOW_STOCK_THRESHOLD) estado='<span class="badge badge--warn">Bajo</span>';
+        const isNatural=p.category==='natural';
+        return `<tr class="${total===0?'row-out':total<=LOW_STOCK_THRESHOLD?'row-low':''}">
+          <td class="admin-product"><img src="${p.image}" alt=""><div><strong>${p.name}</strong><small>S/. ${p.price.toFixed(2)} · ID ${p.id}</small></div></td>
+          <td><span class="cat-badge">${p.category}</span></td>
+          <td>${isNatural?'<em style="color:var(--gray)">—</em>':`<div class="stock-control"><button onclick="adjustStock(${p.id},'small',-1);renderAdmin(document.getElementById('mainContent'))">−</button><input type="number" min="0" value="${s.small||0}" onchange="setStock(${p.id},'small',this.value);renderAdmin(document.getElementById('mainContent'))"><button onclick="adjustStock(${p.id},'small',1);renderAdmin(document.getElementById('mainContent'))">+</button></div>`}</td>
+          <td><div class="stock-control"><button onclick="adjustStock(${p.id},'${isNatural?'unico':'grande'}',-1);renderAdmin(document.getElementById('mainContent'))">−</button><input type="number" min="0" value="${isNatural?(s.unico||0):(s.grande||0)}" onchange="setStock(${p.id},'${isNatural?'unico':'grande'}',this.value);renderAdmin(document.getElementById('mainContent'))"><button onclick="adjustStock(${p.id},'${isNatural?'unico':'grande'}',1);renderAdmin(document.getElementById('mainContent'))">+</button></div></td>
+          <td><strong>${total}</strong></td>
+          <td>${estado}</td>
+          <td><button class="btn-icon btn-icon--delete" onclick="deleteProduct(${p.id})" title="Eliminar">🗑️</button></td>
+        </tr>`;
+      }).join('')}
+    </tbody></table></div>
+    ${hist.length?`<div class="admin-history"><h3>Últimos movimientos (${hist.length})</h3><div class="history-list">${hist.slice(0,10).map(h=>`<div class="history-item"><span>${new Date(h.date).toLocaleString('es-PE')}</span><span>${h.orderId}</span><span>${h.items.map(i=>i.name+(i.size?' ('+i.size+')':'')+' x'+i.qty).join(', ')}</span><strong>S/. ${h.total.toFixed(2)}</strong></div>`).join('')}</div></div>`:''}
+    <p class="admin-footer-tip">Tip: El stock se descuenta automáticamente al confirmar un pedido. Los cambios aquí se guardan en tu navegador (localStorage).</p>
+  </div></section>
+  <div class="modal-overlay" id="addProductOverlay" onclick="closeAddProductModal()"></div>
+  <div class="modal" id="addProductModal">
+    <div class="modal__header"><h3>Agregar nuevo producto</h3><button class="modal__close" onclick="closeAddProductModal()">&times;</button></div>
+    <form id="addProductForm" onsubmit="handleAddProduct(event)">
+      <div class="form-group"><label>Nombre *</label><input type="text" name="name" required placeholder="Ej: Poncho Camden Verde Jade"></div>
+      <div class="form-row"><div class="form-group"><label>Categoría *</label><select name="category" required onchange="toggleAddStockFields()"><option value="adulto">Adultos</option><option value="ninos">Niños</option><option value="natural">Coco Natural</option></select></div><div class="form-group"><label>Precio (S/.) *</label><input type="number" name="price" required min="1" step="0.01" value="200"></div></div>
+      <div class="form-group"><label>URL de imagen *</label><input type="url" name="image" required placeholder="https://..."></div>
+      <div class="form-group"><label>Descripción</label><textarea name="desc" rows="2" placeholder="Descripción breve del poncho"></textarea></div>
+      <div class="form-row" id="rowSmall"><div class="form-group"><label>Stock Small</label><input type="number" name="stockSmall" min="0" value="12"></div><div class="form-group"><label>Stock Grande</label><input type="number" name="stockGrande" min="0" value="12" id="inputGrande"></div></div>
+      <div class="form-row" id="rowUnico" style="display:none"><div class="form-group"><label>Stock Único</label><input type="number" name="stockUnico" min="0" value="20"></div></div>
+      <button type="submit" class="btn btn--primary btn--full">Guardar producto</button>
+    </form>
+  </div>`;
+}
+function adminLogin(e){
+  e.preventDefault();
+  const v=document.getElementById('adminPass').value;
+  if(v===ADMIN_PASS){ sessionStorage.setItem('camden_admin','1'); renderAdmin(document.getElementById('mainContent'));}
+  else alert('Clave incorrecta');
+}
+function adminLogout(){ sessionStorage.removeItem('camden_admin'); navigate('home');}
+// Seguridad: cerrar sesión al refrescar/actualizar la web
+window.addEventListener('beforeunload', ()=> sessionStorage.removeItem('camden_admin'));
+window.addEventListener('pagehide', ()=> sessionStorage.removeItem('camden_admin'));
+document.addEventListener('visibilitychange', ()=>{
+  // opcional: si se oculta mucho tiempo, no cerrar, solo al recargar
+});
+ // Si la navegación es reload, limpiar sesión inmediatamente
+try{
+  const nav = performance.getEntriesByType('navigation')[0];
+  if(nav && nav.type === 'reload') sessionStorage.removeItem('camden_admin');
+}catch(e){}
+// Fallback: al cargar la página, si venimos de reload, asegurar logout
+window.addEventListener('pageshow', (e)=>{
+  if(e.persisted) sessionStorage.removeItem('camden_admin');
+});
+function exportStockCSV(){
+  let csv='ID,Nombre,Categoria,Small,Grande/Unico,Total,Precio,Estado\n';
+  PRODUCTS.forEach(p=>{
+    const s=getStockBySize(p.id);
+    const total=getTotalStock(p.id);
+    const estado=total===0?'Agotado':total<=LOW_STOCK_THRESHOLD?'Bajo':'OK';
+    csv+=`${p.id},"${p.name}",${p.category},${s.small||0},${s.unico!==undefined?s.unico:s.grande||0},${total},${p.price},${estado}\n`;
+  });
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='stock-camden-'+new Date().toISOString().slice(0,10)+'.csv';a.click();URL.revokeObjectURL(url);
+}
+function resetStock(){
+  if(!confirm('¿Restaurar stock a valores por defecto (12 por talla)? Se eliminarán productos agregados y se restaurarán los borrados.')) return;
+  localStorage.removeItem(STOCK_KEY);
+  localStorage.removeItem(PRODUCTS_KEY);
+  localStorage.removeItem(DELETED_KEY);
+  STOCK=loadStock();
+  PRODUCTS=loadProducts();
+  PRODUCTS.forEach(p=>p.inStock=getTotalStock(p.id)>0);
+  renderAdmin(document.getElementById('mainContent'));
 }
 
 document.addEventListener('DOMContentLoaded',()=>{

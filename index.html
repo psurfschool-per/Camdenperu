@@ -37,9 +37,13 @@
                     </li>
                     <li><a href="#coco">Coco Natural</a></li>
                     <li><a href="#home">Contacto</a></li>
+                    <li><a href="#admin" class="nav-admin-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:-2px;margin-right:4px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Stock</a></li>
                 </ul>
             </nav>
             <div class="header__actions">
+                <a href="#admin" class="header__icon header__admin" aria-label="Panel Stock" title="Panel Stock">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>
+                </a>
                 <button class="header__icon header__cart" id="cartBtn" aria-label="Carrito" onclick="toggleCart()">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
                     <span class="cart-count">0</span>
@@ -59,6 +63,7 @@
                 <li><a href="#ninos" onclick="closeMobileMenu()">Ponchos Ninos</a></li>
                 <li><a href="#coco" onclick="closeMobileMenu()">Coco Natural</a></li>
                 <li><a href="#checkout" onclick="closeMobileMenu()">Mi Carrito</a></li>
+                <li><a href="#admin" onclick="closeMobileMenu()" style="color:var(--accent);font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline;vertical-align:-2px;margin-right:4px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>Panel Stock</a></li>
             </ul>
         </nav>
     </div>
@@ -122,11 +127,12 @@
                     <ul>
                         <li><a href="mailto:hola@camdenperu.com">hola@camdenperu.com</a></li>
                         <li><span>Lima, Peru</span></li>
+                        <li><a href="#admin" style="color:var(--accent);font-weight:600">Panel Stock (Admin)</a></li>
                     </ul>
                 </div>
             </div>
             <div class="footer__bottom">
-                <p>&copy; 2026 CAMDEN PERU. Todos los derechos reservados.</p>
+                <p>&copy; 2026 CAMDEN PERU. Todos los derechos reservados. · <a href="#admin" style="color:rgba(255,255,255,0.4);text-decoration:underline">Admin Stock</a></p>
             </div>
         </div>
     </footer>
