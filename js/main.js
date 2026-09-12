@@ -106,6 +106,36 @@ function loadStock(){
 let STOCK=loadStock();
 PRODUCTS.forEach(p=>p.inStock=getTotalStock(p.id)>0);
 
+// ===== Familias de color: comparten galería entre tallas adulto/niño del mismo color =====
+const COLOR_FAMILIES=[
+  [9,12,108],        // rosa/fucsia (adulto + niño)
+  [5,102],           // naranja
+  [25,103],          // azul marino-anaranjado (adulto + niño, par exacto)
+  [2,22,23,24,107],  // rojos (adulto + niño)
+  [7,8,101,106],     // negros (adulto + niño)
+  [14,21,105],       // morado/lila (adulto + niño)
+  [10,13,15],        // verdes
+  [1,3,6,104],       // azul marino (adulto + niño)
+  [11,17],           // azulino
+  [16],              // celeste
+  [18,20],           // bronce/camote (tierras)
+  [4],               // amarillo
+  [19],              // turquesa
+];
+function mergeFamilyGalleries(){
+  COLOR_FAMILIES.forEach(fam=>{
+    const members=fam.map(id=>PRODUCTS.find(p=>p.id===id)).filter(Boolean);
+    const pool=[]; // unión en orden: primero las propias de cada miembro
+    members.forEach(m=>m.images.forEach(src=>{ if(!pool.includes(src)) pool.push(src); }));
+    members.forEach(m=>{
+      const own=m.images.slice();
+      const extra=pool.filter(src=>!own.includes(src));
+      m.images=own.concat(extra);
+    });
+  });
+}
+mergeFamilyGalleries();
+
 function saveStock(){ localStorage.setItem(STOCK_KEY, JSON.stringify(STOCK)); }
 function getStock(id, size=null){
   const s=STOCK[id];
@@ -608,6 +638,7 @@ function resetStock(){
   STOCK=loadStock();
   PRODUCTS=loadProducts();
   PRODUCTS.forEach(p=>p.inStock=getTotalStock(p.id)>0);
+  mergeFamilyGalleries();
   renderAdmin(document.getElementById('mainContent'));
 }
 
