@@ -25,7 +25,7 @@ const BASE_PRODUCTS=[
 {id:24,name:"Poncho Camden Rojo - Turquesa",price:200,image:"/cdn/shop/files/E65DB4A8-5CC4-4B3E-8182-68AA41186921_fdab80e0-254a-4c60-97be-bfffb7a3205c.webp",images:["/cdn/shop/files/E65DB4A8-5CC4-4B3E-8182-68AA41186921_fdab80e0-254a-4c60-97be-bfffb7a3205c.webp","/cdn/shop/files/IMG_5086.webp","/cdn/shop/files/IMG_5093_3.webp","/cdn/shop/files/IMG_5183.webp","/cdn/shop/files/IMG_5192_2.webp"],category:"adulto",inStock:true,slug:"poncho-camden-rojo",desc:"Rojo con turquesa. Fuego y agua."},
 {id:25,name:"Poncho Camden Azul Marino - Anaranjado",price:200,image:"/cdn/shop/files/IMG_0963_2.webp",images:["/cdn/shop/files/IMG_0963_2.webp","/cdn/shop/files/4c322317-46f2-40b0-8d84-969ca432cdbd.webp","/cdn/shop/files/IMG_6022_25bc4050-51e2-4bad-8b23-5c41fc558fe5.webp","/cdn/shop/files/IMG_6464.webp","/cdn/shop/files/IMG_8092_b66dfb80-aae4-41ae-9220-9033e6bc164d.webp"],category:"adulto",inStock:true,slug:"poncho-camden-azul-marino",desc:"Azul marino con anaranjado. Contraste vibrante."},
 {id:101,name:"Poncho Niños Negro - Capucha Azul",price:200,image:"/cdn/shop/files/IMG_6847.webp",images:["/cdn/shop/files/IMG_6847.webp","/cdn/shop/files/IMG_6812.webp","/cdn/shop/files/IMG_6830.webp"],category:"ninos",inStock:true,slug:"poncho-camden-ninos-negro-con-capucha-azul",desc:"Poncho para niños. Negro con capucha azul."},
-{id:102,name:"Poncho Niños Anaranjado - Celeste",price:200,image:"/cdn/shop/files/IMG_3445.webp",images:["/cdn/shop/files/IMG_3445.webp","/cdn/shop/files/IMG_8122_2.webp","/cdn/shop/files/IMG_8154_2.webp","/cdn/shop/files/IMG_8175_2.webp"],category:"ninos",inStock:true,slug:"poncho-camden-ninos-anaranjado-celeste",desc:"Anaranjado con celeste. Colores vibrantes."},
+{id:102,name:"Poncho Niños Anaranjado - Celeste",price:200,image:"/cdn/shop/files/IMG_3445.webp",images:["/cdn/shop/files/IMG_3445.webp"],category:"ninos",inStock:true,slug:"poncho-camden-ninos-anaranjado-celeste",desc:"Anaranjado con celeste. Colores vibrantes."},
 {id:103,name:"Poncho Niños Azul Marino - Anaranjado",price:200,image:"/cdn/shop/files/IMG_3507.webp",images:["/cdn/shop/files/IMG_3507.webp","/cdn/shop/files/IMG_3508.webp"],category:"ninos",inStock:true,slug:"poncho-camden-ninos-azul-marino-anaranjado",desc:"Azul marino con anaranjado. Estilo y comodidad."},
 {id:104,name:"Poncho Niños Azul Marino - Rosado Coral",price:200,image:"/cdn/shop/files/IMG_3500.webp",images:["/cdn/shop/files/IMG_3500.webp"],category:"ninos",inStock:true,slug:"poncho-camden-ninos-azul-marino-rosado-coral",desc:"Azul marino con rosado coral. Dualidad y color."},
 {id:105,name:"Poncho Niños Morado - Turquesa",price:200,image:"/cdn/shop/files/IMG_3550.webp",images:["/cdn/shop/files/IMG_3550.webp","/cdn/shop/files/IMG_3534_02c75307-87fe-4a38-bb6f-eeee0e43a338.webp","/cdn/shop/files/IMG_6785.webp","/cdn/shop/files/IMG_6786.webp","/cdn/shop/files/IMG_9679.webp","/cdn/shop/files/pninos.celestemorado1.webp","/cdn/shop/files/pninos.celestemorado3.webp"],category:"ninos",inStock:true,slug:"poncho-camden-ninos-morado-con-capucha-turquesa",desc:"Morado con turquesa. Magia y aventura."},
@@ -108,13 +108,18 @@ PRODUCTS.forEach(p=>p.inStock=getTotalStock(p.id)>0);
 
 // ===== Familias de color: comparten galería entre tallas adulto/niño del mismo color =====
 const COLOR_FAMILIES=[
-  [9,12,108],        // rosa/fucsia (adulto + niño)
-  [5,102],           // naranja
+  [12,108],          // rosa/fucsia (adulto + niño, par exacto)
+  [9],               // negro-rosa
+  [5,102],           // naranja (adulto + niño)
   [25,103],          // azul marino-anaranjado (adulto + niño, par exacto)
   [2,22,23,24,107],  // rojos (adulto + niño)
   [7,8,101,106],     // negros (adulto + niño)
-  [14,21,105],       // morado/lila (adulto + niño)
-  [10,13,15],        // verdes
+  [14],              // lila
+  [21],              // verde olivo-lila
+  [105],             // morado-turquesa niños
+  [10],              // verde olivo-rosado
+  [13],              // azulino-verde
+  [15],              // verde
   [1,3,6,104],       // azul marino (adulto + niño)
   [11,17],           // azulino
   [16],              // celeste
