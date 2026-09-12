@@ -575,13 +575,13 @@ let cmsPickerSearch='';
 function renderAdmin(c){
   const logged=sessionStorage.getItem('camden_admin')==='1';
   if(!logged){
-    c.innerHTML=`<section class="admin-login"><div class="admin-login__box"><h1>Panel de Stock</h1><p>Ingresa la clave de administrador</p><form onsubmit="adminLogin(event)"><input type="password" id="adminPass" placeholder="Clave" required><button type="submit" class="btn btn--primary btn--full">Ingresar</button><p class="admin-hint">Clave por defecto: <code>camden2026</code></p></form><a href="#home" class="btn btn--outline" style="margin-top:12px;color:var(--primary);border-color:var(--primary)">Volver a la tienda</a></div></section>`;
+    c.innerHTML=`<section class="admin-login"><div class="admin-login__box"><span class="admin__eyebrow">Camden · Admin</span><h1>Panel de stock</h1><p>Acceso restringido. Ingresa tu clave.</p><form onsubmit="adminLogin(event)"><input type="password" id="adminPass" placeholder="Clave" required autocomplete="current-password"><button type="submit" class="btn btn--primary btn--full">Ingresar</button></form><a href="#home" class="btn btn--outline" style="margin-top:12px;color:var(--primary);border-color:var(--primary)">Volver a la tienda</a></div></section>`;
     return;
   }
   const stats=getGlobalStats();
   const hist=JSON.parse(localStorage.getItem('camden_stock_history')||'[]');
   c.innerHTML=`<section class="admin"><div class="admin__container">
-    <div class="admin__header"><div><h1>Gestión de Stock</h1><p>${stats.totalProducts} productos · ${stats.totalUnits} unidades totales</p></div><div class="admin__actions"><button class="btn btn--primary" onclick="openAddProductModal()" style="background:var(--accent);border:none">+ Agregar producto</button><button class="btn btn--primary" onclick="exportStockCSV()">Exportar CSV</button><button class="btn btn--outline" style="color:var(--primary);border-color:var(--primary)" onclick="resetStock()">Restaurar stock</button><button class="btn" style="background:#fee2e2;color:#991b1b" onclick="adminLogout()">Salir</button></div></div>
+    <div class="admin__header"><div><span class="admin__eyebrow">Camden · Admin</span><h1>Inventario</h1><p>${stats.totalProducts} artículos · ${stats.totalUnits} unidades</p></div><div class="admin__actions"><button class="btn btn--primary btn--sm" onclick="openAddProductModal()" style="background:var(--accent);border:none">+ Agregar producto</button><button class="btn btn--primary btn--sm" onclick="exportStockCSV()">Exportar CSV</button><button class="btn btn--outline btn--sm" style="color:var(--primary);border-color:var(--primary)" onclick="resetStock()">Restaurar</button><button class="btn btn--sm" style="background:#fee2e2;color:#991b1b" onclick="adminLogout()">Salir</button></div></div>
     <div class="admin__stats">
       <div class="admin-stat"><span class="admin-stat__num">${stats.totalUnits}</span><span class="admin-stat__label">Unidades totales</span></div>
       <div class="admin-stat admin-stat--ok"><span class="admin-stat__num">${stats.totalProducts - stats.outOfStock - stats.lowStock}</span><span class="admin-stat__label">Con stock</span></div>
@@ -626,7 +626,7 @@ function renderAdmin(c){
           <td><div class="stock-control"><button onclick="adjustStock(${p.id},'${isNatural?'unico':'grande'}',-1);renderAdmin(document.getElementById('mainContent'))">−</button><input type="number" min="0" value="${isNatural?(s.unico||0):(s.grande||0)}" onchange="setStock(${p.id},'${isNatural?'unico':'grande'}',this.value);renderAdmin(document.getElementById('mainContent'))"><button onclick="adjustStock(${p.id},'${isNatural?'unico':'grande'}',1);renderAdmin(document.getElementById('mainContent'))">+</button></div></td>
           <td><strong>${total}</strong></td>
           <td>${estado}</td>
-          <td><button class="btn-icon btn-icon--delete" onclick="deleteProduct(${p.id})" title="Eliminar">🗑️</button></td>
+          <td><button class="btn-icon btn-icon--delete" onclick="deleteProduct(${p.id})" title="Eliminar" aria-label="Eliminar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button></td>
         </tr>`;
       }).join('')}
     </tbody></table></div>
@@ -677,7 +677,7 @@ function renderCmsList(search){
         <img src="${p.image}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/img/placeholder.svg'">
         <div class="cms-card__body">
           <strong>${p.name}</strong>
-          <small>ID ${p.id} · <span class="cat-badge">${p.category}</span> · S/. ${p.price.toFixed(2)} · ${p.images.length} img</small>
+          <span class="cms-card__meta">ID ${p.id} · ${p.category} · S/. ${p.price.toFixed(2)} · ${p.images.length} fotos</span>
           <p>${(p.desc||'').slice(0,90)}${(p.desc||'').length>90?'…':''}</p>
         </div>
         <div class="cms-card__actions">
@@ -719,12 +719,13 @@ function cmsRenderEditor(){
         <div class="cms-gallery">
           ${p.images.map(src=>`<div class="cms-thumb ${src===p.image?'is-cover':''}">
             <img src="${src}" loading="lazy" onerror="this.onerror=null;this.src='/img/placeholder.svg'">
+            ${src===p.image?'<span class="cms-thumb__cover-tag">Portada</span>':''}
             <div class="cms-thumb__btns">
-              <button type="button" title="Portada" onclick="cmsSetCover(${p.id},'${src}')">★</button>
-              <button type="button" title="Quitar" onclick="cmsRemoveImage(${p.id},'${src}')">✕</button>
+              <button type="button" title="Usar como portada" onclick="cmsSetCover(${p.id},'${src}')">★</button>
+              <button type="button" class="danger" title="Quitar de la galería" onclick="cmsRemoveImage(${p.id},'${src}')">×</button>
             </div>
           </div>`).join('')}
-          <button type="button" class="cms-add" onclick="cmsOpenPicker(${p.id})">＋<span>Añadir</span></button>
+          <button type="button" class="cms-add" onclick="cmsOpenPicker(${p.id})">+<span>Añadir</span></button>
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
