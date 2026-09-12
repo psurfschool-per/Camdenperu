@@ -102,9 +102,12 @@ let detailQty=1;
 let detailSize='grande';
 
 // ========= SISTEMA DE STOCK =========
+// NOTA: la clave admin vive SOLO en el servidor (data/admin.json o env ADMIN_PASS).
+// El cliente nunca la contiene: el login se verifica vía POST /api/admin/login.
 const STOCK_KEY='camden_stock_v2';
-const ADMIN_PASS='camden2026';
 const LOW_STOCK_THRESHOLD=5;
+// Escape anti-XSS para todo dato que se pinta en HTML (nombres, descripciones, cliente)
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 function getDefaultStockForProduct(p){
   if(p.category==='natural') return {unico: 40};
@@ -188,7 +191,11 @@ function isOutOfStock(id){ return getTotalStock(id)===0; }
 function isLowStock(id){ const t=getTotalStock(id); return t>0 && t<=LOW_STOCK_THRESHOLD; }
 function getStockBySize(id){ return STOCK[id]||{}; }
 function setStock(id, size, qty){
-  if(!STOCK[id]) STOCK[id]=getDefaultStockForProduct(PRODUCTS.find(p=>p.id===id));
+  if(!STOCK[id]){
+    const ref=PRODUCTS.find(p=>p.id===id);
+    if(!ref) return;
+    STOCK[id]=getDefaultStockForProduct(ref);
+  }
   const v=Math.max(0, parseInt(qty)||0);
   if(size) STOCK[id][size]=v;
   else {
@@ -288,7 +295,7 @@ function updateCartCount(){const e=document.querySelector('.cart-count');if(e)e.
 
 function showCartNotification(n,isError=false){
 const d=document.createElement('div');d.className='cart-notification'+(isError?' cart-notification--error':'');
-d.innerHTML=`<span>${isError? '⚠️ '+n : `"${n}" agregado al carrito`}</span>`;
+d.innerHTML=`<span>${isError? '⚠️ '+esc(n) : `"${esc(n)}" agregado al carrito`}</span>`;
 document.body.appendChild(d);setTimeout(()=>d.classList.add('show'),10);
 setTimeout(()=>{d.classList.remove('show');setTimeout(()=>d.remove(),300)}, isError?3500:2500);
 }
@@ -301,7 +308,7 @@ if(!cart.length){em.style.display='block';f.style.display='none';c.innerHTML='';
 em.style.display='none';f.style.display='block';
 c.innerHTML=cart.map(i=>{
  const key=i.cartKey || String(i.id);
- return `<div class="cart-item"><img src="${i.image}" alt="${i.name}"><div class="cart-item__info"><h4>${i.name}</h4><span class="cart-item__price">S/. ${i.price.toFixed(2)}</span><div class="cart-item__qty"><button onclick="updateCartQty('${key}',${i.qty-1})">-</button><span>${i.qty}</span><button onclick="updateCartQty('${key}',${i.qty+1})">+</button></div></div><button class="cart-item__remove" onclick="removeFromCart('${key}')">&times;</button></div>`;
+   return `<div class="cart-item"><img src="${i.image}" alt="${esc(i.name)}"><div class="cart-item__info"><h4>${esc(i.name)}</h4><span class="cart-item__price">S/. ${i.price.toFixed(2)}</span><div class="cart-item__qty"><button onclick="updateCartQty('${key}',${i.qty-1})">-</button><span>${i.qty}</span><button onclick="updateCartQty('${key}',${i.qty+1})">+</button></div></div><button class="cart-item__remove" onclick="removeFromCart('${key}')">&times;</button></div>`;
 }).join('');
 t.textContent=`S/. ${getCartTotal().toFixed(2)}`;
 }
@@ -339,8 +346,8 @@ const out=isOutOfStock(p.id);
 let badgeHtml='';
 if(out) badgeHtml='<span class="product-card__badge product-card__badge--sold">Agotado</span>';
 else if(low) badgeHtml='<span class="product-card__badge product-card__badge--low">Quedan '+total+'</span>';
-else if(p.badge) badgeHtml=`<span class="product-card__badge">${p.badge}</span>`;
-return`<a href="#producto/${p.slug}" class="product-card ${out?'product-card--out':''}"><div class="product-card__image"><img src="${p.image}" alt="${p.name}" loading="lazy" onerror="this.onerror=null;this.src='/img/placeholder.svg'">${badgeHtml}<span class="product-card__stock-hint">${out?'Sin stock': total+' en stock'}</span></div><div class="product-card__info"><h3>${p.name}</h3><span class="product-card__price">S/. ${p.price.toFixed(2)}</span></div></a>`;
+else if(p.badge) badgeHtml=`<span class="product-card__badge">${esc(p.badge)}</span>`;
+return`<a href="#producto/${p.slug}" class="product-card ${out?'product-card--out':''}"><div class="product-card__image"><img src="${p.image}" alt="${esc(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='/img/placeholder.svg'">${badgeHtml}<span class="product-card__stock-hint">${out?'Sin stock': total+' en stock'}</span></div><div class="product-card__info"><h3>${esc(p.name)}</h3><span class="product-card__price">S/. ${p.price.toFixed(2)}</span></div></a>`;
 }
 
 function renderHome(c){
@@ -383,7 +390,7 @@ if(isNatural){
 }
 const outOfStock=totalStock===0;
 const canBuy=!outOfStock && (isNatural ? (stockInfo.unico||0)>0 : getStock(p.id, detailSize)>0);
-c.innerHTML=`<section class="product-detail"><div class="product-detail__container"><div class="product-detail__gallery"><div class="product-detail__main-image"><img src="${p.images[0]}" alt="${p.name}" id="mainProductImage"></div>${p.images.length>1?`<div class="product-detail__thumbs">${p.images.map((img,i)=>`<button class="product-detail__thumb ${i===0?'active':''}" onclick="changeMainImage('${img}',this)"><img src="${img}" alt="${p.name}"></button>`).join('')}</div>`:''}</div><div class="product-detail__info"><span class="section-tag">CAMDEN PERU</span><h1 class="product-detail__title">${p.name}</h1><div class="product-detail__price">S/. ${p.price.toFixed(2)}</div><p class="product-detail__desc">${p.desc}</p>${sizeSelector}${!outOfStock?`<div class="product-detail__qty"><label>Cantidad</label><div class="qty-control"><button onclick="changeDetailQty(-1)">-</button><span id="detailQty" data-pid="${p.id}">1</span><button onclick="changeDetailQty(1)">+</button></div></div><button class="btn btn--primary btn--full" id="detailAddBtn" onclick="addToCartFromDetail(${p.id})" ${!canBuy?'disabled style="opacity:0.5;cursor:not-allowed;"':''}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> ${canBuy?'Agregar al carrito':'Agotado en esta talla'}</button>`:'<button class="btn btn--primary btn--full" disabled style="opacity:0.5;cursor:not-allowed;">Agotado - Sin stock</button>'}<div class="product-detail__features"><div class="feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z"/></svg><span>Hecho con amor en Peru</span></div><div class="feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>100% Producto Peruano</span></div><div class="feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,12 20,22 4,22 4,12"/><rect x="2" y="7" width="20" height="5" rx="1"/></svg><span>Envio a todo el pais</span></div></div></div></div></section>${r.length?`<section class="products" style="background:var(--light)"><div class="products__container"><div class="products__header"><span class="section-tag">Te puede interesar</span><h2 class="section-title">Productos relacionados</h2></div><div class="products__grid">${r.map(p=>renderProductCard(p)).join('')}</div></div></section>`:''}`;
+c.innerHTML=`<section class="product-detail"><div class="product-detail__container"><div class="product-detail__gallery"><div class="product-detail__main-image"><img src="${p.images[0]}" alt="${esc(p.name)}" id="mainProductImage"></div>${p.images.length>1?`<div class="product-detail__thumbs">${p.images.map((img,i)=>`<button class="product-detail__thumb ${i===0?'active':''}" onclick="changeMainImage('${img}',this)"><img src="${img}" alt="${esc(p.name)}"></button>`).join('')}</div>`:''}</div><div class="product-detail__info"><span class="section-tag">CAMDEN PERU</span><h1 class="product-detail__title">${esc(p.name)}</h1><div class="product-detail__price">S/. ${p.price.toFixed(2)}</div><p class="product-detail__desc">${esc(p.desc)}</p>${sizeSelector}${!outOfStock?`<div class="product-detail__qty"><label>Cantidad</label><div class="qty-control"><button onclick="changeDetailQty(-1)">-</button><span id="detailQty" data-pid="${p.id}">1</span><button onclick="changeDetailQty(1)">+</button></div></div><button class="btn btn--primary btn--full" id="detailAddBtn" onclick="addToCartFromDetail(${p.id})" ${!canBuy?'disabled style="opacity:0.5;cursor:not-allowed;"':''}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg> ${canBuy?'Agregar al carrito':'Agotado en esta talla'}</button>`:'<button class="btn btn--primary btn--full" disabled style="opacity:0.5;cursor:not-allowed;">Agotado - Sin stock</button>'}<div class="product-detail__features"><div class="feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z"/></svg><span>Hecho con amor en Peru</span></div><div class="feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>100% Producto Peruano</span></div><div class="feature"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,12 20,22 4,22 4,12"/><rect x="2" y="7" width="20" height="5" rx="1"/></svg><span>Envio a todo el pais</span></div></div></div></div></section>${r.length?`<section class="products" style="background:var(--light)"><div class="products__container"><div class="products__header"><span class="section-tag">Te puede interesar</span><h2 class="section-title">Productos relacionados</h2></div><div class="products__grid">${r.map(p=>renderProductCard(p)).join('')}</div></div></section>`:''}`;
   setTimeout(updateDetailStockMsg,50);
 }
 
@@ -426,7 +433,7 @@ function changeMainImage(s,b){const m=document.getElementById('mainProductImage'
 
 function renderCheckout(c){
 if(!cart.length){c.innerHTML='<section class="page-header"><h1>Tu carrito esta vacio</h1><a href="#productos" class="btn btn--primary">Ver productos</a></section>';return}
-c.innerHTML=`<section class="page-header"><h1>Finalizar compra</h1><p>Completa tus datos</p></section><section class="checkout"><div class="checkout__container"><form class="checkout__form" id="checkoutForm" onsubmit="processPayment(event)"><div class="checkout__section"><h3>Informacion personal</h3><div class="form-row"><div class="form-group"><label>Nombre completo *</label><input type="text" name="nombre" required placeholder="Juan Perez"></div><div class="form-group"><label>Correo electronico *</label><input type="email" name="email" required placeholder="juan@email.com"></div></div><div class="form-row"><div class="form-group"><label>Telefono *</label><input type="tel" name="telefono" required placeholder="999 888 777"></div><div class="form-group"><label>DNI</label><input type="text" name="dni" placeholder="12345678"></div></div></div><div class="checkout__section"><h3>Direccion de envio</h3><div class="form-row"><div class="form-group"><label>Departamento *</label><select name="departamento" required><option value="">Seleccionar</option><option>Lima</option><option>Arequipa</option><option>Trujillo</option><option>Cusco</option><option>Chiclayo</option><option>Ica</option><option>Huancayo</option><option>Piura</option><option>Tacna</option><option>Otro</option></select></div><div class="form-group"><label>Provincia *</label><input type="text" name="provincia" required placeholder="Tu provincia"></div></div><div class="form-row"><div class="form-group"><label>Direccion completa *</label><input type="text" name="direccion" required placeholder="Av. Principal 123"></div><div class="form-group"><label>Referencia</label><input type="text" name="referencia" placeholder="Frente al parque"></div></div></div><div class="checkout__section"><h3>Metodo de pago</h3><div class="payment-methods"><label class="payment-method active"><input type="radio" name="pago" value="yape" checked onchange="togglePaymentMethod(this)"><div class="payment-method__info"><strong>Yape</strong><span>Pago inmediato</span></div></label><label class="payment-method"><input type="radio" name="pago" value="plin" onchange="togglePaymentMethod(this)"><div class="payment-method__info"><strong>Plin</strong><span>Pago inmediato</span></div></label><label class="payment-method"><input type="radio" name="pago" value="transferencia" onchange="togglePaymentMethod(this)"><div class="payment-method__info"><strong>Transferencia</strong><span>BCP, Interbank, BBVA</span></div></label><label class="payment-method"><input type="radio" name="pago" value="efectivo" onchange="togglePaymentMethod(this)"><div class="payment-method__info"><strong>Efectivo</strong><span>Contra entrega</span></div></label></div></div><button type="submit" class="btn btn--primary btn--full btn--large"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Confirmar pedido - S/. ${getCartTotal().toFixed(2)}</button></form><div class="checkout__summary"><h3>Resumen del pedido</h3><div class="checkout__items">${cart.map(i=>`<div class="checkout__item"><img src="${i.image}" alt="${i.name}"><div class="checkout__item-info"><span>${i.name}</span><span class="checkout__item-qty">x${i.qty}</span></div><span class="checkout__item-price">S/. ${(i.price*i.qty).toFixed(2)}</span></div>`).join('')}</div><div class="checkout__totals"><div class="checkout__total-row"><span>Subtotal</span><span>S/. ${getCartTotal().toFixed(2)}</span></div><div class="checkout__total-row"><span>Envio</span><span>Calcular</span></div><div class="checkout__total-row checkout__total-row--final"><span>Total</span><span>S/. ${getCartTotal().toFixed(2)}</span></div></div></div></div></section>`;
+c.innerHTML=`<section class="page-header"><h1>Finalizar compra</h1><p>Completa tus datos</p></section><section class="checkout"><div class="checkout__container"><form class="checkout__form" id="checkoutForm" onsubmit="processPayment(event)"><div class="checkout__section"><h3>Informacion personal</h3><div class="form-row"><div class="form-group"><label>Nombre completo *</label><input type="text" name="nombre" required placeholder="Juan Perez"></div><div class="form-group"><label>Correo electronico *</label><input type="email" name="email" required placeholder="juan@email.com"></div></div><div class="form-row"><div class="form-group"><label>Telefono *</label><input type="tel" name="telefono" required placeholder="999 888 777"></div><div class="form-group"><label>DNI</label><input type="text" name="dni" placeholder="12345678"></div></div></div><div class="checkout__section"><h3>Direccion de envio</h3><div class="form-row"><div class="form-group"><label>Departamento *</label><select name="departamento" required><option value="">Seleccionar</option><option>Lima</option><option>Arequipa</option><option>Trujillo</option><option>Cusco</option><option>Chiclayo</option><option>Ica</option><option>Huancayo</option><option>Piura</option><option>Tacna</option><option>Otro</option></select></div><div class="form-group"><label>Provincia *</label><input type="text" name="provincia" required placeholder="Tu provincia"></div></div><div class="form-row"><div class="form-group"><label>Direccion completa *</label><input type="text" name="direccion" required placeholder="Av. Principal 123"></div><div class="form-group"><label>Referencia</label><input type="text" name="referencia" placeholder="Frente al parque"></div></div></div><div class="checkout__section"><h3>Metodo de pago</h3><div class="payment-methods"><label class="payment-method active"><input type="radio" name="pago" value="yape" checked onchange="togglePaymentMethod(this)"><div class="payment-method__info"><strong>Yape</strong><span>Pago inmediato</span></div></label><label class="payment-method"><input type="radio" name="pago" value="plin" onchange="togglePaymentMethod(this)"><div class="payment-method__info"><strong>Plin</strong><span>Pago inmediato</span></div></label><label class="payment-method"><input type="radio" name="pago" value="transferencia" onchange="togglePaymentMethod(this)"><div class="payment-method__info"><strong>Transferencia</strong><span>BCP, Interbank, BBVA</span></div></label><label class="payment-method"><input type="radio" name="pago" value="efectivo" onchange="togglePaymentMethod(this)"><div class="payment-method__info"><strong>Efectivo</strong><span>Contra entrega</span></div></label></div></div><button type="submit" class="btn btn--primary btn--full btn--large"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Confirmar pedido - S/. ${getCartTotal().toFixed(2)}</button></form><div class="checkout__summary"><h3>Resumen del pedido</h3><div class="checkout__items">${cart.map(i=>`<div class="checkout__item"><img src="${i.image}" alt="${i.name}"><div class="checkout__item-info"><span>${esc(i.name)}</span><span class="checkout__item-qty">x${i.qty}</span></div><span class="checkout__item-price">S/. ${(i.price*i.qty).toFixed(2)}</span></div>`).join('')}</div><div class="checkout__totals"><div class="checkout__total-row"><span>Subtotal</span><span>S/. ${getCartTotal().toFixed(2)}</span></div><div class="checkout__total-row"><span>Envio</span><span>Calcular</span></div><div class="checkout__total-row checkout__total-row--final"><span>Total</span><span>S/. ${getCartTotal().toFixed(2)}</span></div></div></div></div></section>`;
 }
 
 function togglePaymentMethod(r){document.querySelectorAll('.payment-method').forEach(m=>m.classList.remove('active'));r.closest('.payment-method').classList.add('active')}
@@ -457,7 +464,7 @@ function renderConfirmation(c){
 const o=JSON.parse(localStorage.getItem('camden_last_order'));
 if(!o){c.innerHTML='<section class="page-header"><h1>No hay pedido reciente</h1><a href="#home" class="btn btn--primary">Volver al inicio</a></section>';return}
 const p={yape:'Yape',plin:'Plin',transferencia:'Transferencia bancaria',efectivo:'Efectivo contra entrega'};
-c.innerHTML=`<section class="confirmation"><div class="confirmation__container"><div class="confirmation__icon">&#10003;</div><h1>Pedido confirmado!</h1><p class="confirmation__id">Pedido: <strong>${o.id}</strong></p><p class="confirmation__msg">Gracias <strong>${o.customer.nombre}</strong>, tu pedido ha sido registrado.</p><div class="confirmation__details"><div class="confirmation__detail"><h4>Metodo de pago</h4><p>${p[o.payment]}</p></div><div class="confirmation__detail"><h4>Direccion</h4><p>${o.customer.direccion}, ${o.customer.departamento}</p></div><div class="confirmation__detail"><h4>Total</h4><p class="confirmation__total">S/. ${o.total.toFixed(2)}</p></div></div><p class="confirmation__contact">Nos comunicaremos al <strong>${o.customer.telefono}</strong> para coordinar la entrega.</p><div class="confirmation__actions"><a href="#home" class="btn btn--primary">Volver al inicio</a><button class="btn btn--whatsapp" onclick="sendWhatsAppOrder(JSON.parse(localStorage.getItem('camden_last_order')))"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> Enviar por WhatsApp</button></div></div></section>`;
+c.innerHTML=`<section class="confirmation"><div class="confirmation__container"><div class="confirmation__icon">&#10003;</div><h1>Pedido confirmado!</h1><p class="confirmation__id">Pedido: <strong>${o.id}</strong></p><p class="confirmation__msg">Gracias <strong>${esc(o.customer.nombre)}</strong>, tu pedido ha sido registrado.</p><div class="confirmation__details"><div class="confirmation__detail"><h4>Metodo de pago</h4><p>${p[o.payment]}</p></div><div class="confirmation__detail"><h4>Direccion</h4><p>${esc(o.customer.direccion)}, ${esc(o.customer.departamento)}</p></div><div class="confirmation__detail"><h4>Total</h4><p class="confirmation__total">S/. ${o.total.toFixed(2)}</p></div></div><p class="confirmation__contact">Nos comunicaremos al <strong>${esc(o.customer.telefono)}</strong> para coordinar la entrega.</p><div class="confirmation__actions"><a href="#home" class="btn btn--primary">Volver al inicio</a><button class="btn btn--whatsapp" onclick="sendWhatsAppOrder(JSON.parse(localStorage.getItem('camden_last_order')))"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> Enviar por WhatsApp</button></div></div></section>`;
 }
 
 function initScrollAnimations(){
@@ -581,7 +588,7 @@ function renderAdmin(c){
   const stats=getGlobalStats();
   const hist=JSON.parse(localStorage.getItem('camden_stock_history')||'[]');
   c.innerHTML=`<section class="admin"><div class="admin__container">
-    <div class="admin__header"><div><span class="admin__eyebrow">Camden · Admin</span><h1>Inventario</h1><p>${stats.totalProducts} artículos · ${stats.totalUnits} unidades</p></div><div class="admin__actions"><button class="btn btn--primary btn--sm" onclick="openAddProductModal()" style="background:var(--accent);border:none">+ Agregar producto</button><button class="btn btn--primary btn--sm" onclick="exportStockCSV()">Exportar CSV</button><button class="btn btn--outline btn--sm" style="color:var(--primary);border-color:var(--primary)" onclick="resetStock()">Restaurar</button><button class="btn btn--sm" style="background:#fee2e2;color:#991b1b" onclick="adminLogout()">Salir</button></div></div>
+    <div class="admin__header"><div><span class="admin__eyebrow">Camden · Admin</span><h1>Inventario</h1><p>${stats.totalProducts} artículos · ${stats.totalUnits} unidades</p></div><div class="admin__actions"><button class="btn btn--primary btn--sm" onclick="openAddProductModal()" style="background:var(--accent);border:none">+ Agregar producto</button><button class="btn btn--primary btn--sm" onclick="exportStockCSV()">Exportar CSV</button><button class="btn btn--outline btn--sm" style="color:var(--primary);border-color:var(--primary)" onclick="resetStock()">Restaurar</button><button class="btn btn--outline btn--sm" style="color:var(--primary);border-color:var(--primary)" onclick="adminOpenPassModal()">Clave</button><button class="btn btn--sm" style="background:#fee2e2;color:#991b1b" onclick="adminLogout()">Salir</button></div></div>
     <div class="admin__stats">
       <div class="admin-stat"><span class="admin-stat__num">${stats.totalUnits}</span><span class="admin-stat__label">Unidades totales</span></div>
       <div class="admin-stat admin-stat--ok"><span class="admin-stat__num">${stats.totalProducts - stats.outOfStock - stats.lowStock}</span><span class="admin-stat__label">Con stock</span></div>
@@ -620,7 +627,7 @@ function renderAdmin(c){
         else if(total<=LOW_STOCK_THRESHOLD) estado='<span class="badge badge--warn">Bajo</span>';
         const isNatural=p.category==='natural';
         return `<tr class="${total===0?'row-out':total<=LOW_STOCK_THRESHOLD?'row-low':''}">
-          <td class="admin-product"><img src="${p.image}" alt=""><div><strong>${p.name}</strong><small>S/. ${p.price.toFixed(2)} · ID ${p.id}</small></div></td>
+          <td class="admin-product"><img src="${p.image}" alt=""><div><strong>${esc(p.name)}</strong><small>S/. ${p.price.toFixed(2)} · ID ${p.id}</small></div></td>
           <td><span class="cat-badge">${p.category}</span></td>
           <td>${isNatural?'<em style="color:var(--gray)">—</em>':`<div class="stock-control"><button onclick="adjustStock(${p.id},'small',-1);renderAdmin(document.getElementById('mainContent'))">−</button><input type="number" min="0" value="${s.small||0}" onchange="setStock(${p.id},'small',this.value);renderAdmin(document.getElementById('mainContent'))"><button onclick="adjustStock(${p.id},'small',1);renderAdmin(document.getElementById('mainContent'))">+</button></div>`}</td>
           <td><div class="stock-control"><button onclick="adjustStock(${p.id},'${isNatural?'unico':'grande'}',-1);renderAdmin(document.getElementById('mainContent'))">−</button><input type="number" min="0" value="${isNatural?(s.unico||0):(s.grande||0)}" onchange="setStock(${p.id},'${isNatural?'unico':'grande'}',this.value);renderAdmin(document.getElementById('mainContent'))"><button onclick="adjustStock(${p.id},'${isNatural?'unico':'grande'}',1);renderAdmin(document.getElementById('mainContent'))">+</button></div></td>
@@ -630,7 +637,7 @@ function renderAdmin(c){
         </tr>`;
       }).join('')}
     </tbody></table></div>
-    ${hist.length?`<div class="admin-history"><h3>Últimos movimientos (${hist.length})</h3><div class="history-list">${hist.slice(0,10).map(h=>`<div class="history-item"><span>${new Date(h.date).toLocaleString('es-PE')}</span><span>${h.orderId}</span><span>${h.items.map(i=>i.name+(i.size?' ('+i.size+')':'')+' x'+i.qty).join(', ')}</span><strong>S/. ${h.total.toFixed(2)}</strong></div>`).join('')}</div></div>`:''}`:''}
+    ${hist.length?`<div class="admin-history"><h3>Últimos movimientos (${hist.length})</h3><div class="history-list">${hist.slice(0,10).map(h=>`<div class="history-item"><span>${new Date(h.date).toLocaleString('es-PE')}</span><span>${h.orderId}</span><span>${h.items.map(i=>esc(i.name)+(i.size?' ('+i.size+')':'')+' x'+i.qty).join(', ')}</span><strong>S/. ${h.total.toFixed(2)}</strong></div>`).join('')}</div></div>`:''}`:''}
     <p class="admin-footer-tip">Tip: El stock se descuenta automáticamente al confirmar un pedido. Los cambios aquí se guardan en tu navegador (localStorage).</p>
   </div></section>
   <div class="modal-overlay" id="addProductOverlay" onclick="closeAddProductModal()"></div>
@@ -654,6 +661,17 @@ function renderAdmin(c){
     <div style="padding:16px 24px 0"><input type="text" class="admin-search" style="width:100%" placeholder="Filtrar por nombre..." oninput="cmsPickerSearch=this.value;cmsRenderPickerGrid()"></div>
     <div class="form-group" style="padding:16px 24px 0"><label>Pegar URL externa</label><div style="display:flex;gap:8px"><input type="url" id="cmsUrlInput" placeholder="https://..." style="flex:1"><button class="btn btn--primary" onclick="cmsAddUrl()">Añadir</button></div></div>
     <div class="cms-bank" id="cmsBankGrid"><p style="color:var(--gray)">Cargando banco...</p></div>
+  </div>
+  <div class="modal-overlay" id="passOverlay" onclick="adminClosePassModal()"></div>
+  <div class="modal" id="passModal">
+    <div class="modal__header"><h3>Cambiar clave de acceso</h3><button class="modal__close" onclick="adminClosePassModal()">&times;</button></div>
+    <form id="passForm" onsubmit="adminChangePass(event)">
+      <div class="form-group"><label>Clave actual *</label><input type="password" name="current" required autocomplete="current-password"></div>
+      <div class="form-group"><label>Nueva clave (mínimo 8 caracteres) *</label><input type="password" name="next" required minlength="8" autocomplete="new-password"></div>
+      <div class="form-group"><label>Confirmar nueva clave *</label><input type="password" name="confirm" required autocomplete="new-password"></div>
+      <p id="passMsg" style="font-size:0.85rem;min-height:20px;margin:0"></p>
+      <button type="submit" class="btn btn--primary btn--full">Guardar nueva clave</button>
+    </form>
   </div>`;
 }
 // ========= CMS: lista de productos =========
@@ -676,9 +694,9 @@ function renderCmsList(search){
       ${items.map(p=>`<div class="cms-card">
         <img src="${p.image}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/img/placeholder.svg'">
         <div class="cms-card__body">
-          <strong>${p.name}</strong>
+          <strong>${esc(p.name)}</strong>
           <span class="cms-card__meta">ID ${p.id} · ${p.category} · S/. ${p.price.toFixed(2)} · ${p.images.length} fotos</span>
-          <p>${(p.desc||'').slice(0,90)}${(p.desc||'').length>90?'…':''}</p>
+          <p>${esc((p.desc||'').slice(0,90))}${(p.desc||'').length>90?'…':''}</p>
         </div>
         <div class="cms-card__actions">
           <button class="btn btn--primary btn--sm" onclick="cmsEditProduct(${p.id})">Editar</button>
@@ -824,11 +842,62 @@ function cmsAddUrl(){
   document.getElementById('cmsUrlInput').value='';
   cmsAddImage(v);
 }
-function adminLogin(e){
+async function adminLogin(e){
   e.preventDefault();
-  const v=document.getElementById('adminPass').value;
-  if(v===ADMIN_PASS){ sessionStorage.setItem('camden_admin','1'); renderAdmin(document.getElementById('mainContent'));}
-  else alert('Clave incorrecta');
+  const input=document.getElementById('adminPass');
+  const btn=e.target.querySelector('button[type="submit"]');
+  const v=input.value;
+  if(btn){ btn.disabled=true; btn.textContent='Verificando...'; }
+  try{
+    const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:v})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok && j.ok){
+      input.value='';
+      sessionStorage.setItem('camden_admin','1');
+      renderAdmin(document.getElementById('mainContent'));
+    } else {
+      alert(j.error||'Clave incorrecta');
+    }
+  }catch(err){
+    alert('No se pudo verificar con el servidor. Revisa tu conexión.');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='Ingresar'; }
+  }
+}
+function adminOpenPassModal(){
+  document.getElementById('passOverlay').classList.add('active');
+  document.getElementById('passModal').classList.add('active');
+}
+function adminClosePassModal(){
+  document.getElementById('passOverlay').classList.remove('active');
+  document.getElementById('passModal').classList.remove('active');
+}
+async function adminChangePass(e){
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const current=(fd.get('current')||'').toString();
+  const next=(fd.get('next')||'').toString();
+  const confirm=(fd.get('confirm')||'').toString();
+  const msg=document.getElementById('passMsg');
+  msg.textContent='';
+  if(next!==confirm){ msg.textContent='La nueva clave y su confirmación no coinciden.'; return; }
+  if(next.length<8){ msg.textContent='La nueva clave debe tener al menos 8 caracteres.'; return; }
+  try{
+    const r=await fetch('/api/admin/change',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current, next})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok && j.ok){
+      e.target.reset();
+      msg.style.color='#38a169';
+      msg.textContent='Clave actualizada correctamente.';
+      setTimeout(adminClosePassModal, 1200);
+    } else {
+      msg.style.color='#c53030';
+      msg.textContent=j.error||'No se pudo cambiar la clave.';
+    }
+  }catch(err){
+    msg.style.color='#c53030';
+    msg.textContent='Error de conexión con el servidor.';
+  }
 }
 function adminLogout(){ sessionStorage.removeItem('camden_admin'); navigate('home');}
 // Seguridad: cerrar sesión al refrescar/actualizar la web

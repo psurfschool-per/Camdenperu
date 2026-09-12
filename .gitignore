@@ -6,3 +6,5 @@ Thumbs.db
 .env.local
 dist/
 .railway/
+data/
+# la clave admin vive en data/admin.json (servidor) — nunca commitear
