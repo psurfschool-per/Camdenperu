@@ -14,6 +14,8 @@ app.use(helmet({
 app.use(compression());
 app.use(express.json());
 
+// Favicon con fondo blanco ya servido como archivo estático /favicon.ico
+
 // Healthcheck para Railway
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime() });

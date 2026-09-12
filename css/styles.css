@@ -121,12 +121,12 @@ button { cursor: pointer; font-family: var(--body); }
 /* ==========================================
    HERO
    ========================================== */
-.hero { position: relative; height: 100vh; min-height: 600px; display: flex; align-items: center; overflow: hidden; }
+.hero { position: relative; height: 100vh; min-height: 600px; display: flex; align-items: center; justify-content: flex-end; overflow: hidden; }
 .hero__slides { position: absolute; inset: 0; }
 .hero__slide { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0; transition: opacity 1.2s ease; }
 .hero__slide--active { opacity: 1; }
 .hero__overlay { position: absolute; inset: 0; background: linear-gradient(135deg, rgba(26,26,46,0.7) 0%, rgba(26,26,46,0.3) 50%, rgba(26,26,46,0.5) 100%); }
-.hero__content { position: relative; z-index: 2; max-width: 1280px; margin: 0 auto; padding: 0 24px; padding-top: 70px; width: 100%; }
+.hero__content { position: relative; z-index: 2; max-width: 640px; margin: 0 48px 0 auto; padding: 0 24px; padding-top: 70px; width: 100%; text-align: left; }
 .hero__badge { display: inline-block; background: var(--accent); color: var(--white); padding: 6px 20px; border-radius: 30px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 24px; animation: fadeInUp 0.8s ease forwards; }
 .hero__title { font-family: var(--heading); color: var(--white); margin-bottom: 20px; }
 .hero__title-line { display: block; font-size: clamp(2.5rem, 7vw, 5rem); font-weight: 700; line-height: 1.05; animation: fadeInUp 0.8s ease 0.15s forwards; opacity: 0; }
@@ -502,24 +502,86 @@ button { cursor: pointer; font-family: var(--body); }
 .modal .form-row { display: flex; gap: 12px; }
 
 @media (max-width: 768px) {
+  .hero { justify-content: center; }
+  .hero__content { margin: 0 auto; max-width: 1280px; text-align: center; padding: 0 16px; }
+  .hero__subtitle { margin-left: auto; margin-right: auto; }
+  .hero__cta { justify-content: center; }
   .admin__stats { grid-template-columns: 1fr 1fr; }
   .history-item { grid-template-columns: 1fr; }
 }
 
+@media (max-width: 600px) {
+    .header__container { height: 60px; padding: 0 12px; }
+    .header__logo img { width: 86px; }
+    .header__icon { width: 38px; height: 38px; }
+    .announcement-bar { font-size: 0.7rem; padding: 6px 12px; line-height: 1.4; }
+    .section-title { font-size: clamp(1.5rem, 6vw, 2rem); }
+    .products { padding: 48px 0; }
+    .products__header { gap: 12px; }
+    .about__stats { gap: 16px; }
+    .cta-banner h2 { font-size: clamp(1.6rem, 6vw, 2.2rem); }
+    .cta-banner p { font-size: 0.95rem; }
+    .admin__header { flex-direction: column; align-items: stretch; }
+    .admin__actions { width: 100%; }
+    .admin__actions .btn { flex: 1; justify-content: center; min-width: 0; }
+    .modal .form-row { flex-direction: column; }
+}
+
 @media (max-width: 480px) {
     .products__grid { grid-template-columns: 1fr 1fr; gap: 12px; max-width: 100%; }
-    .products__grid--scroll .product-card { min-width: 170px; max-width: 180px; }
-    .product-card__info { padding: 12px; }
-    .product-card__info h3 { font-size: 0.82rem; }
-    .product-card__price { font-size: 0.88rem; }
+    .products__grid--scroll .product-card { min-width: 165px; max-width: 175px; }
+    .product-card__info { padding: 10px; }
+    .product-card__info h3 { font-size: 0.78rem; line-height: 1.25; min-height: 2.4em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .product-card__price { font-size: 0.85rem; }
+    .product-card__badge { font-size: 0.62rem; padding: 3px 8px; top: 8px; left: 8px; }
     .benefits__grid { grid-template-columns: 1fr; }
-    .hero__subtitle { font-size: 0.9rem; }
+    .hero { min-height: 72vh; height: 72vh; }
+    .hero__title-line { font-size: clamp(1.9rem, 9vw, 2.6rem); }
+    .hero__subtitle { font-size: 0.88rem; margin-bottom: 20px; }
     .hero__cta { flex-direction: column; width: 100%; }
-    .hero__cta .btn { width: 100%; }
+    .hero__cta .btn { width: 100%; padding: 14px 20px; }
     .confirmation__container { padding: 0 8px; }
     .confirmation h1 { font-size: 1.5rem; }
     .about__stats { flex-direction: column; gap: 16px; }
     .checkout__item img { width: 45px; height: 45px; }
     .newsletter { padding: 40px 16px; }
     .newsletter__content h3 { font-size: 1.2rem; }
+    .product-detail { padding: 80px 16px 40px; }
+    .product-detail__title { font-size: 1.4rem; }
+    .product-detail__price { font-size: 1.4rem; }
+    .size-selector { grid-template-columns: 1fr; }
+    .cart-notification { left: 16px; right: 16px; transform: translateY(20px); bottom: 16px; padding: 12px 16px; font-size: 0.82rem; text-align: center; }
+    .cart-notification.show { transform: translateY(0); }
+    .back-to-top { bottom: 16px; right: 16px; width: 44px; height: 44px; }
+}
+
+@media (max-width: 375px) {
+    .header__container { padding: 0 10px; }
+    .products__container { padding: 0 12px; }
+    .products__grid { gap: 10px; }
+    .products__grid--scroll { gap: 10px; margin: 0 -12px; width: calc(100% + 24px); padding: 0 12px 16px; }
+    .products__grid--scroll .product-card { min-width: 150px; max-width: 160px; }
+    .product-card__info h3 { font-size: 0.74rem; }
+    .features-strip { gap: 12px; padding: 16px 12px; }
+    .features-strip__item { font-size: 0.7rem; gap: 6px; }
+    .highlight-card__overlay { padding: 20px; }
+    .highlight-card__overlay h3 { font-size: 1.25rem; }
+    .benefit-card { padding: 20px 14px; }
+    .footer { padding: 48px 16px 24px; }
+    .page-header h1 { font-size: 1.35rem; }
+    .checkout__section { padding: 20px 16px; }
+    .admin { padding: 80px 12px 40px; }
+    .admin-stat { padding: 14px; }
+    .admin-stat__num { font-size: 1.4rem; }
+    .mobile-menu { width: 85vw; max-width: 300px; padding: 70px 20px 24px; }
+}
+
+@media (max-width: 320px) {
+    .products__grid { grid-template-columns: 1fr; gap: 12px; }
+    .products__grid .product-card { max-width: 100%; }
+    .products__grid--scroll .product-card { min-width: 140px; max-width: 150px; }
+    .hero__badge { font-size: 0.68rem; padding: 5px 14px; }
+    .hero__title-line { font-size: clamp(1.6rem, 8vw, 2.1rem); }
+    .btn { padding: 12px 20px; font-size: 0.85rem; }
+    .section-tag { font-size: 0.68rem; }
 }
