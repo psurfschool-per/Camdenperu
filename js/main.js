@@ -382,7 +382,7 @@ function updateDetailStockMsg(){
   else msg.innerHTML='<span style="color:#38a169">'+avail+' en stock</span>';
 }
 function addToCartFromDetail(id){addToCart(id,detailQty,detailSize);detailQty=1}
-function changeMainImage(s,b){document.getElementById('mainProductImage').src=s;document.querySelectorAll('.product-detail__thumb').forEach(t=>t.classList.remove('active'));b.classList.add('active')}
+function changeMainImage(s,b){const m=document.getElementById('mainProductImage');m.style.animation='none';void m.offsetWidth;m.style.animation='';m.src=s;document.querySelectorAll('.product-detail__thumb').forEach(t=>t.classList.remove('active'));b.classList.add('active');b.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'})}
 
 function renderCheckout(c){
 if(!cart.length){c.innerHTML='<section class="page-header"><h1>Tu carrito esta vacio</h1><a href="#productos" class="btn btn--primary">Ver productos</a></section>';return}
