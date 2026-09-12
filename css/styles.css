@@ -228,7 +228,7 @@ button { cursor: pointer; font-family: var(--body); }
 /* ==========================================
    CTA BANNER
    ========================================== */
-.cta-banner { position: relative; padding: 120px 24px; background: url('https://camdenperu.com/cdn/shop/files/DSC09146.jpg?v=1750975938&width=1920') center/cover no-repeat; text-align: center; }
+.cta-banner { position: relative; padding: 120px 24px; background: url('/cdn/shop/files/DSC09146.jpg') center/cover no-repeat; text-align: center; }
 .cta-banner::before { content: ''; position: absolute; inset: 0; background: rgba(26,26,46,0.7); }
 .cta-banner__container { position: relative; z-index: 1; }
 .cta-banner h2 { font-family: var(--heading); font-size: clamp(2rem, 4vw, 3rem); color: var(--white); margin-bottom: 16px; }

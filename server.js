@@ -78,6 +78,11 @@ app.get('/debug', (req, res) => {
 });
 
 // Servir assets estáticos con cache
+// /cdn/shop/files/* ahora es local (migración fuera de Shopify) - cache largo
+app.use('/cdn', express.static(path.join(__dirname, 'cdn'), {
+  maxAge: '30d',
+  etag: true
+}));
 app.use(express.static(path.join(__dirname), {
   maxAge: '1d',
   etag: true,
@@ -87,6 +92,12 @@ app.use(express.static(path.join(__dirname), {
     }
   }
 }));
+
+// Si falta una imagen local, devolver 404 (no index.html) para verlo en logs
+app.get('/cdn/*', (req, res) => {
+  errLog(`Missing local image ${req.originalUrl}`);
+  res.status(404).send('Image not found - sube el archivo a /cdn/shop/files/');
+});
 
 // SPA fallback: cualquier ruta no-archivo sirve index.html (hash routes #admin, #producto/slug)
 app.get('*', (req, res) => {
