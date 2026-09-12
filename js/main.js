@@ -35,18 +35,41 @@ const BASE_PRODUCTS=[
 ];
 const PRODUCTS_KEY='camden_products_custom';
 const DELETED_KEY='camden_deleted_ids';
+const OVERRIDES_KEY='camden_product_overrides';
+const REMOVED_KEY='camden_removed_images';
+function getOverrides(){ try{ return JSON.parse(localStorage.getItem(OVERRIDES_KEY)||'{}'); }catch(e){ return {}; } }
+function getRemoved(){ try{ return JSON.parse(localStorage.getItem(REMOVED_KEY)||'{}'); }catch(e){ return {}; } }
 function loadProducts(){
   let custom=[];
   let deleted=[];
+  const overrides=getOverrides();
   try{ custom=JSON.parse(localStorage.getItem(PRODUCTS_KEY)||'[]'); }catch(e){}
   try{ deleted=JSON.parse(localStorage.getItem(DELETED_KEY)||'[]'); }catch(e){}
-  const baseFiltered = BASE_PRODUCTS.filter(b=>!deleted.includes(b.id));
+  const baseFiltered = BASE_PRODUCTS.filter(b=>!deleted.includes(b.id)).map(b=>{
+    const o=overrides[b.id];
+    if(!o) return b;
+    return Object.assign({}, b, o, {images:(o.images||b.images).slice()});
+  });
   return [...baseFiltered, ...custom];
 }
 let PRODUCTS = loadProducts();
 function saveProducts(){
   const custom = PRODUCTS.filter(pr => !BASE_PRODUCTS.some(b=>b.id===pr.id));
   localStorage.setItem(PRODUCTS_KEY, JSON.stringify(custom));
+  // guardar ediciones sobre productos base como overrides
+  const editable=['name','price','category','badge','desc','image','images'];
+  const ov={};
+  PRODUCTS.forEach(pr=>{
+    const b=BASE_PRODUCTS.find(x=>x.id===pr.id);
+    if(!b) return;
+    const diff={};
+    editable.forEach(k=>{
+      const a=JSON.stringify(pr[k]), c=JSON.stringify(b[k]);
+      if(a!==c) diff[k]=pr[k];
+    });
+    if(Object.keys(diff).length) ov[pr.id]=diff;
+  });
+  localStorage.setItem(OVERRIDES_KEY, JSON.stringify(ov));
 }
 function generateSlug(name){
   return name.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') + '-' + Date.now().toString(36).slice(-4);
@@ -128,16 +151,28 @@ const COLOR_FAMILIES=[
   [19],              // turquesa
 ];
 function mergeFamilyGalleries(){
+  const removed=getRemoved();
   COLOR_FAMILIES.forEach(fam=>{
     const members=fam.map(id=>PRODUCTS.find(p=>p.id===id)).filter(Boolean);
     const pool=[]; // unión en orden: primero las propias de cada miembro
     members.forEach(m=>m.images.forEach(src=>{ if(!pool.includes(src)) pool.push(src); }));
     members.forEach(m=>{
       const own=m.images.slice();
-      const extra=pool.filter(src=>!own.includes(src));
+      const blk=removed[m.id]||[];
+      const extra=pool.filter(src=>!own.includes(src)&&!blk.includes(src));
       m.images=own.concat(extra);
     });
   });
+}
+function blockFamilyImage(id, src){
+  const r=getRemoved();
+  r[id]=r[id]||[];
+  if(!r[id].includes(src)) r[id].push(src);
+  localStorage.setItem(REMOVED_KEY, JSON.stringify(r));
+}
+function unblockFamilyImage(id, src){
+  const r=getRemoved();
+  if(r[id]){ r[id]=r[id].filter(s=>s!==src); localStorage.setItem(REMOVED_KEY, JSON.stringify(r)); }
 }
 mergeFamilyGalleries();
 
@@ -529,9 +564,14 @@ function toggleAddStockFields(){
   if(rowUnico) rowUnico.style.display = isNatural ? 'flex' : 'none';
 }
 
-// ========= ADMIN PANEL STOCK =========
+// ========= ADMIN PANEL STOCK + CMS =========
 let adminFilter='all';
 let adminSearch='';
+let adminTab='stock';
+let cmsEditId=null;
+let cmsBank=null;
+let cmsPickerFor=null;
+let cmsPickerSearch='';
 function renderAdmin(c){
   const logged=sessionStorage.getItem('camden_admin')==='1';
   if(!logged){
@@ -548,6 +588,11 @@ function renderAdmin(c){
       <div class="admin-stat admin-stat--warn"><span class="admin-stat__num">${stats.lowStock}</span><span class="admin-stat__label">Stock bajo (≤${LOW_STOCK_THRESHOLD})</span></div>
       <div class="admin-stat admin-stat--danger"><span class="admin-stat__num">${stats.outOfStock}</span><span class="admin-stat__label">Agotados</span></div>
     </div>
+    <div class="admin-tabs">
+      <button class="${adminTab==='stock'?'active':''}" onclick="adminTab='stock';renderAdmin(document.getElementById('mainContent'))">Stock</button>
+      <button class="${adminTab==='cms'?'active':''}" onclick="adminTab='cms';renderAdmin(document.getElementById('mainContent'))">Productos (CMS)</button>
+    </div>
+    ${adminTab==='cms'?renderCmsList(adminSearch):`
     <div class="admin__toolbar">
       <input type="text" placeholder="Buscar poncho..." value="${adminSearch}" oninput="adminSearch=this.value;renderAdmin(document.getElementById('mainContent'))" class="admin-search">
       <div class="admin-filters">
@@ -557,7 +602,8 @@ function renderAdmin(c){
         <button class="${adminFilter==='adulto'?'active':''}" onclick="adminFilter='adulto';renderAdmin(document.getElementById('mainContent'))">Adultos</button>
         <button class="${adminFilter==='ninos'?'active':''}" onclick="adminFilter='ninos';renderAdmin(document.getElementById('mainContent'))">Niños</button>
       </div>
-    </div>
+    </div>`}
+    ${adminTab==='stock'?`
     <div class="admin__table-wrap"><table class="admin-table"><thead><tr><th>Producto</th><th>Categoría</th><th>Small</th><th>Grande / Único</th><th>Total</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
       ${PRODUCTS.filter(p=>{
         if(adminFilter==='low' && !isLowStock(p.id)) return false;
@@ -584,7 +630,7 @@ function renderAdmin(c){
         </tr>`;
       }).join('')}
     </tbody></table></div>
-    ${hist.length?`<div class="admin-history"><h3>Últimos movimientos (${hist.length})</h3><div class="history-list">${hist.slice(0,10).map(h=>`<div class="history-item"><span>${new Date(h.date).toLocaleString('es-PE')}</span><span>${h.orderId}</span><span>${h.items.map(i=>i.name+(i.size?' ('+i.size+')':'')+' x'+i.qty).join(', ')}</span><strong>S/. ${h.total.toFixed(2)}</strong></div>`).join('')}</div></div>`:''}
+    ${hist.length?`<div class="admin-history"><h3>Últimos movimientos (${hist.length})</h3><div class="history-list">${hist.slice(0,10).map(h=>`<div class="history-item"><span>${new Date(h.date).toLocaleString('es-PE')}</span><span>${h.orderId}</span><span>${h.items.map(i=>i.name+(i.size?' ('+i.size+')':'')+' x'+i.qty).join(', ')}</span><strong>S/. ${h.total.toFixed(2)}</strong></div>`).join('')}</div></div>`:''}`:''}
     <p class="admin-footer-tip">Tip: El stock se descuenta automáticamente al confirmar un pedido. Los cambios aquí se guardan en tu navegador (localStorage).</p>
   </div></section>
   <div class="modal-overlay" id="addProductOverlay" onclick="closeAddProductModal()"></div>
@@ -599,7 +645,183 @@ function renderAdmin(c){
       <div class="form-row" id="rowUnico" style="display:none"><div class="form-group"><label>Stock Único</label><input type="number" name="stockUnico" min="0" value="20"></div></div>
       <button type="submit" class="btn btn--primary btn--full">Guardar producto</button>
     </form>
+  </div>
+  <div class="modal-overlay" id="cmsEditOverlay" onclick="cmsCloseEditor()"></div>
+  <div class="modal modal--wide" id="cmsEditModal"><div id="cmsEditBody"></div></div>
+  <div class="modal-overlay" id="cmsPickerOverlay" onclick="cmsClosePicker()"></div>
+  <div class="modal modal--wide" id="cmsPickerModal">
+    <div class="modal__header"><h3>Banco de imágenes (<span id="cmsBankCount">0</span>)</h3><button class="modal__close" onclick="cmsClosePicker()">&times;</button></div>
+    <div style="padding:16px 24px 0"><input type="text" class="admin-search" style="width:100%" placeholder="Filtrar por nombre..." oninput="cmsPickerSearch=this.value;cmsRenderPickerGrid()"></div>
+    <div class="form-group" style="padding:16px 24px 0"><label>Pegar URL externa</label><div style="display:flex;gap:8px"><input type="url" id="cmsUrlInput" placeholder="https://..." style="flex:1"><button class="btn btn--primary" onclick="cmsAddUrl()">Añadir</button></div></div>
+    <div class="cms-bank" id="cmsBankGrid"><p style="color:var(--gray)">Cargando banco...</p></div>
   </div>`;
+}
+// ========= CMS: lista de productos =========
+function renderCmsList(search){
+  const items=PRODUCTS.filter(p=>{
+    if(adminFilter==='adulto' && p.category!=='adulto') return false;
+    if(adminFilter==='ninos' && p.category!=='ninos') return false;
+    if(search && !(p.name+' '+(p.desc||'')).toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+  return `<div class="admin__toolbar">
+      <input type="text" placeholder="Buscar artículo..." value="${search}" oninput="adminSearch=this.value;renderAdmin(document.getElementById('mainContent'))" class="admin-search">
+      <div class="admin-filters">
+        <button class="${adminFilter==='all'?'active':''}" onclick="adminFilter='all';renderAdmin(document.getElementById('mainContent'))">Todos</button>
+        <button class="${adminFilter==='adulto'?'active':''}" onclick="adminFilter='adulto';renderAdmin(document.getElementById('mainContent'))">Adultos</button>
+        <button class="${adminFilter==='ninos'?'active':''}" onclick="adminFilter='ninos';renderAdmin(document.getElementById('mainContent'))">Niños</button>
+      </div>
+    </div>
+    <div class="cms-list">
+      ${items.map(p=>`<div class="cms-card">
+        <img src="${p.image}" alt="" loading="lazy" onerror="this.onerror=null;this.src='/img/placeholder.svg'">
+        <div class="cms-card__body">
+          <strong>${p.name}</strong>
+          <small>ID ${p.id} · <span class="cat-badge">${p.category}</span> · S/. ${p.price.toFixed(2)} · ${p.images.length} img</small>
+          <p>${(p.desc||'').slice(0,90)}${(p.desc||'').length>90?'…':''}</p>
+        </div>
+        <div class="cms-card__actions">
+          <button class="btn btn--primary btn--sm" onclick="cmsEditProduct(${p.id})">Editar</button>
+          <a class="btn btn--outline btn--sm" style="color:var(--primary);border-color:var(--primary)" href="#producto/${p.slug}" target="_blank">Ver</a>
+        </div>
+      </div>`).join('')||'<p style="color:var(--gray)">Sin resultados.</p>'}
+    </div>`;
+}
+// ========= CMS: editor =========
+function cmsEditProduct(id){
+  cmsEditId=id;
+  cmsRenderEditor();
+  document.getElementById('cmsEditOverlay').classList.add('active');
+  document.getElementById('cmsEditModal').classList.add('active');
+}
+function cmsCloseEditor(){
+  cmsEditId=null;
+  document.getElementById('cmsEditOverlay').classList.remove('active');
+  document.getElementById('cmsEditModal').classList.remove('active');
+  renderAdmin(document.getElementById('mainContent'));
+}
+function cmsRenderEditor(){
+  const p=PRODUCTS.find(x=>x.id===cmsEditId);
+  if(!p) return;
+  const isBase=BASE_PRODUCTS.some(b=>b.id===p.id);
+  document.getElementById('cmsEditBody').innerHTML=`
+    <div class="modal__header"><h3>Editar artículo · ID ${p.id}</h3><button class="modal__close" onclick="cmsCloseEditor()">&times;</button></div>
+    <form id="cmsEditForm" onsubmit="cmsSaveProduct(event)">
+      <div class="form-group"><label>Nombre *</label><input type="text" name="name" required value="${p.name.replace(/"/g,'&quot;')}"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Precio (S/.) *</label><input type="number" name="price" required min="1" step="0.01" value="${p.price}"></div>
+        <div class="form-group"><label>Categoría *</label><select name="category"><option value="adulto" ${p.category==='adulto'?'selected':''}>Adultos</option><option value="ninos" ${p.category==='ninos'?'selected':''}>Niños</option></select></div>
+        <div class="form-group"><label>Etiqueta</label><input type="text" name="badge" value="${(p.badge||'').replace(/"/g,'&quot;')}" placeholder="Nuevo, etc."></div>
+      </div>
+      <div class="form-group"><label>Descripción</label><textarea name="desc" rows="3">${p.desc||''}</textarea></div>
+      <div class="form-group"><label>Portada actual</label><img src="${p.image}" class="cms-cover" onerror="this.onerror=null;this.src='/img/placeholder.svg'"></div>
+      <div class="form-group"><label>Galería (${p.images.length}) — ★ = portada</label>
+        <div class="cms-gallery">
+          ${p.images.map(src=>`<div class="cms-thumb ${src===p.image?'is-cover':''}">
+            <img src="${src}" loading="lazy" onerror="this.onerror=null;this.src='/img/placeholder.svg'">
+            <div class="cms-thumb__btns">
+              <button type="button" title="Portada" onclick="cmsSetCover(${p.id},'${src}')">★</button>
+              <button type="button" title="Quitar" onclick="cmsRemoveImage(${p.id},'${src}')">✕</button>
+            </div>
+          </div>`).join('')}
+          <button type="button" class="cms-add" onclick="cmsOpenPicker(${p.id})">＋<span>Añadir</span></button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="submit" class="btn btn--primary" style="flex:1">Guardar cambios</button>
+        ${isBase?`<button type="button" class="btn btn--outline" style="color:var(--primary);border-color:var(--primary)" onclick="cmsResetItem(${p.id})">Restablecer original</button>`:''}
+        <button type="button" class="btn" style="background:#fee2e2;color:#991b1b" onclick="cmsCloseEditor();deleteProduct(${p.id})">Eliminar</button>
+      </div>
+    </form>`;
+}
+function cmsSaveProduct(e){
+  e.preventDefault();
+  const p=PRODUCTS.find(x=>x.id===cmsEditId);
+  if(!p) return;
+  const fd=new FormData(e.target);
+  const oldCat=p.category;
+  p.name=fd.get('name').trim();
+  p.price=Math.max(1, parseFloat(fd.get('price'))||p.price);
+  p.category=fd.get('category');
+  p.badge=fd.get('badge').trim();
+  p.desc=fd.get('desc').trim();
+  if(oldCat!==p.category){
+    const s=STOCK[p.id]||{};
+    if(p.category==='natural' && s.unico===undefined) STOCK[p.id]={unico:20};
+    if(p.category!=='natural' && (s.small===undefined||s.grande===undefined)) STOCK[p.id]={small:s.small||0, grande:s.grande||0};
+    saveStock();
+  }
+  p.inStock=getTotalStock(p.id)>0;
+  saveProducts();
+  cmsCloseEditor();
+  showCartNotification('Artículo actualizado');
+}
+function cmsResetItem(id){
+  if(!confirm('¿Descartar tus ediciones y volver al original?')) return;
+  const b=BASE_PRODUCTS.find(x=>x.id===id);
+  if(!b) return;
+  const ov=getOverrides(); delete ov[id]; localStorage.setItem(OVERRIDES_KEY, JSON.stringify(ov));
+  const r=getRemoved(); delete r[id]; localStorage.setItem(REMOVED_KEY, JSON.stringify(r));
+  const i=PRODUCTS.findIndex(x=>x.id===id);
+  PRODUCTS[i]=Object.assign({}, b, {images:b.images.slice()});
+  PRODUCTS[i].inStock=getTotalStock(id)>0;
+  saveProducts(); mergeFamilyGalleries();
+  cmsRenderEditor(); renderAdmin(document.getElementById('mainContent'));
+  cmsEditProduct(id);
+}
+function cmsSetCover(id, src){
+  const p=PRODUCTS.find(x=>x.id===id); if(!p) return;
+  if(!p.images.includes(src)) p.images.unshift(src);
+  p.image=src; unblockFamilyImage(id, src);
+  saveProducts(); cmsRenderEditor();
+}
+function cmsRemoveImage(id, src){
+  const p=PRODUCTS.find(x=>x.id===id); if(!p) return;
+  if(p.images.length<=1){ alert('El artículo debe tener al menos 1 imagen.'); return; }
+  if(!confirm('¿Quitar esta imagen de la galería?')) return;
+  p.images=p.images.filter(s=>s!==src);
+  if(p.image===src) p.image=p.images[0];
+  blockFamilyImage(id, src);
+  saveProducts(); cmsRenderEditor();
+}
+// ========= CMS: banco de imágenes =========
+async function cmsOpenPicker(id){
+  cmsPickerFor=id;
+  document.getElementById('cmsPickerOverlay').classList.add('active');
+  document.getElementById('cmsPickerModal').classList.add('active');
+  if(!cmsBank){
+    try{
+      const r=await fetch('/api/images');
+      const j=await r.json();
+      cmsBank=j.images||[];
+    }catch(e){ cmsBank=[]; }
+  }
+  document.getElementById('cmsBankCount').textContent=cmsBank.length;
+  cmsRenderPickerGrid();
+}
+function cmsClosePicker(){
+  cmsPickerFor=null;
+  document.getElementById('cmsPickerOverlay').classList.remove('active');
+  document.getElementById('cmsPickerModal').classList.remove('active');
+}
+function cmsRenderPickerGrid(){
+  const g=document.getElementById('cmsBankGrid');
+  if(!g) return;
+  const q=(cmsPickerSearch||'').toLowerCase();
+  const list=(cmsBank||[]).filter(s=>!q||s.toLowerCase().includes(q)).slice(0,120);
+  g.innerHTML=list.map(s=>`<button type="button" class="cms-bank__item" onclick="cmsAddImage('${s}')" title="${s}"><img src="${s}" loading="lazy" onerror="this.onerror=null;this.src='/img/placeholder.svg'"></button>`).join('')||'<p style="color:var(--gray)">Sin imágenes. Revisa /api/images en el servidor.</p>';
+}
+function cmsAddImage(src){
+  const p=PRODUCTS.find(x=>x.id===cmsPickerFor); if(!p) return;
+  if(!p.images.includes(src)) p.images.push(src);
+  unblockFamilyImage(p.id, src);
+  saveProducts(); cmsClosePicker(); cmsRenderEditor();
+}
+function cmsAddUrl(){
+  const v=document.getElementById('cmsUrlInput').value.trim();
+  if(!v) return;
+  document.getElementById('cmsUrlInput').value='';
+  cmsAddImage(v);
 }
 function adminLogin(e){
   e.preventDefault();
@@ -640,6 +862,8 @@ function resetStock(){
   localStorage.removeItem(STOCK_KEY);
   localStorage.removeItem(PRODUCTS_KEY);
   localStorage.removeItem(DELETED_KEY);
+  localStorage.removeItem(OVERRIDES_KEY);
+  localStorage.removeItem(REMOVED_KEY);
   STOCK=loadStock();
   PRODUCTS=loadProducts();
   PRODUCTS.forEach(p=>p.inStock=getTotalStock(p.id)>0);

@@ -64,6 +64,20 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
 
+// API: lista de imágenes locales para el CMS (selector de galería)
+app.get('/api/images', (req, res) => {
+  const fs = require('fs');
+  const dir = path.join(__dirname, 'cdn', 'shop', 'files');
+  fs.readdir(dir, (err, files) => {
+    if (err) return res.status(500).json({ error: 'No se pudo leer el banco de imágenes' });
+    const imgs = files
+      .filter(f => /\.(webp|jpg|jpeg|png|gif)$/i.test(f))
+      .sort()
+      .map(f => `/cdn/shop/files/${f}`);
+    res.json({ count: imgs.length, images: imgs });
+  });
+});
+
 // Debug endpoint para ver estado del deploy
 app.get('/debug', (req, res) => {
   res.json({
