@@ -693,3 +693,64 @@ button { cursor: pointer; font-family: var(--body); }
     .btn { padding: 12px 20px; font-size: 0.85rem; }
     .section-tag { font-size: 0.68rem; }
 }
+
+/* ==========================================
+   MOVILES CHICOS (<=480px) - refuerzo
+   ========================================== */
+@media (max-width: 480px) {
+    html { -webkit-text-size-adjust: 100%; }
+    button, a { touch-action: manipulation; }
+
+    /* Evita el zoom automatico de iOS al enfocar campos */
+    .form-group input, .form-group select, .form-group textarea,
+    .modal .form-group input, .modal .form-group select, .modal .form-group textarea,
+    .newsletter__form input, .admin-search, .stock-control input { font-size: 16px; }
+
+    /* Botones tactiles mas comodos */
+    .header__icon { width: 42px; height: 42px; }
+    .cart-item__qty button { width: 36px; height: 36px; font-size: 1rem; }
+    .qty-control button { width: 40px; height: 40px; }
+    .stock-control button { width: 32px; height: 32px; }
+    .payment-method { padding: 14px; }
+    .copy-btn { padding: 6px 14px; font-size: 0.75rem; }
+
+    /* Checkout compacto sin desbordes */
+    .checkout-steps { font-size: 0.72rem; padding: 6px 14px; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 100%; }
+    .checkout__summary { padding: 24px 20px; }
+    .checkout__item-info, .confirmation__item-info { min-width: 0; }
+    .checkout__item-info span:first-child { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .checkout__item-price { font-size: 0.82rem; }
+    .checkout__optional { padding: 10px 12px; }
+
+    /* Confirmacion a todo ancho */
+    .confirmation { padding: 120px 12px 80px; }
+    .confirmation__alert { padding: 18px 16px; margin: 20px 0; }
+    .confirmation__alert .btn { padding: 14px 16px; font-size: 0.88rem; }
+    .confirmation__items, .confirmation__next { padding: 16px; margin-bottom: 16px; }
+    .confirmation__next { margin-bottom: 24px; }
+    .confirmation__actions { flex-direction: column; align-items: stretch; }
+    .confirmation__actions .btn { width: 100%; }
+
+    /* Hero y portada */
+    .hero__content { padding-top: 60px; }
+    .hero__badge { white-space: nowrap; }
+    .highlight-card__overlay p { font-size: 0.82rem; }
+
+    /* Admin/CMS sin desbordes */
+    .cms-card { flex-wrap: wrap; }
+    .cms-card__actions { width: 100%; justify-content: flex-end; }
+    .admin-tabs { max-width: 100%; overflow-x: auto; }
+    .admin-tabs button { white-space: nowrap; }
+    .admin__table-wrap { margin: 0 -4px; }
+}
+
+@media (max-width: 375px) {
+    .confirmation__item img { width: 44px; height: 44px; }
+    .confirmation__item-price { font-size: 0.82rem; }
+    .checkout__total-row { font-size: 0.85rem; }
+    .modal form { padding: 20px 16px; }
+    .modal__header { padding: 16px; }
+    .admin-login__box { padding: 32px 20px 24px; }
+    .checkout__section h3 { font-size: 1.05rem; }
+    .page-header p { font-size: 0.85rem; }
+}
