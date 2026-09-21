@@ -302,6 +302,8 @@ button { cursor: pointer; font-family: var(--body); }
 .checkout-steps { display: inline-flex; align-items: center; gap: 10px; margin-top: 14px; background: var(--white); border: 1px solid var(--gray-light); border-radius: 30px; padding: 8px 20px; font-size: 0.8rem; font-weight: 600; color: var(--primary); }
 .checkout-steps i { font-style: normal; color: var(--accent); }
 .form-hint { font-size: 0.75rem; color: var(--gray); margin-top: 2px; }
+.form-error { display: block; font-size: 0.78rem; font-weight: 600; color: #c53030; margin-top: 4px; }
+.form-error[hidden] { display: none; }
 .label-opt { font-weight: 400; color: var(--gray); font-size: 0.78rem; }
 .checkout__optional { margin-top: 12px; border: 1px dashed var(--gray-light); border-radius: var(--radius); padding: 12px 16px; }
 .checkout__optional summary { cursor: pointer; font-size: 0.85rem; font-weight: 500; color: var(--accent); }
