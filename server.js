@@ -154,16 +154,20 @@ app.get('/api/images', (req, res) => {
 });
 
 // Debug endpoint para ver estado del deploy
+// Los headers del visitante solo se exponen desde el propio servidor (evita fuga de datos)
 app.get('/debug', (req, res) => {
-  res.json({
+  const ip = req.ip || '';
+  const isLocal = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+  const body = {
     status: 'ok',
     uptime: process.uptime(),
     env: process.env.NODE_ENV || 'production',
     port: PORT,
     debug: DEBUG,
-    time: new Date().toISOString(),
-    headers: req.headers
-  });
+    time: new Date().toISOString()
+  };
+  if (DEBUG && isLocal) body.headers = req.headers;
+  res.json(body);
 });
 
 // Servir assets estáticos con cache

@@ -5,8 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "DEBUG=camden* node server.js",
-    "debug": "DEBUG=camden* node server.js"
+    "dev": "cross-env DEBUG=true node server.js",
+    "debug": "cross-env DEBUG=true node server.js"
   },
   "engines": {
     "node": ">=18"
@@ -18,7 +18,15 @@
     "helmet": "^7.1.0",
     "morgan": "^1.10.0"
   },
-  "keywords": ["ponchos", "peru", "ecommerce", "railway"],
+  "keywords": [
+    "ponchos",
+    "peru",
+    "ecommerce",
+    "railway"
+  ],
   "author": "CAMDEN PERU",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "cross-env": "^7.0.3"
+  }
 }

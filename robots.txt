@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# CAMDEN PERU - Tienda online (SPA con hash-routing)
+Sitemap: https://camdenperu.com/sitemap.xml
